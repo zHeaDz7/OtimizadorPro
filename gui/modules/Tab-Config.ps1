@@ -1,25 +1,25 @@
-# Aba "Config" -- recursos opcionais do Windows (Hyper-V, WSL, etc),
+﻿# Aba "Config" -- recursos opcionais do Windows (Hyper-V, WSL, etc),
 # atalhos pros paineis classicos de controle, e ferramentas de reparo
 # (reaproveitando scripts ja existentes onde da).
 $Global:CatalogoFeatures = @(
-  @{ Nome = ".NET Framework 3.5 (necessario pra jogo antigo)"; Feature = "NetFx3" }
+  @{ Nome = ".NET Framework 3.5 (necessário pra jogo antigo)"; Feature = "NetFx3" }
   @{ Nome = "Hyper-V (maquina virtual oficial do Windows)"; Feature = "Microsoft-Hyper-V-All" }
   @{ Nome = "Windows Subsystem for Linux (WSL)"; Feature = "Microsoft-Windows-Subsystem-Linux" }
-  @{ Nome = "Windows Sandbox (ambiente isolado descartavel)"; Feature = "Containers-DisposableClientVM" }
-  @{ Nome = "Componentes de midia legado (WMP, DirectPlay)"; Feature = "WindowsMediaPlayer,DirectPlay" }
+  @{ Nome = "Windows Sandbox (ambiente isolado descartável)"; Feature = "Containers-DisposableClientVM" }
+  @{ Nome = "Componentes de mídia legado (WMP, DirectPlay)"; Feature = "WindowsMediaPlayer,DirectPlay" }
 )
 
 $Global:CatalogoPaineis = @(
   @{ Nome = "Programas e Recursos"; Comando = "appwiz.cpl" }
-  @{ Nome = "Opcoes de Energia"; Comando = "powercfg.cpl" }
-  @{ Nome = "Conexoes de Rede"; Comando = "ncpa.cpl" }
+  @{ Nome = "Opções de Energia"; Comando = "powercfg.cpl" }
+  @{ Nome = "Conexões de Rede"; Comando = "ncpa.cpl" }
   @{ Nome = "Propriedades do Mouse"; Comando = "main.cpl" }
   @{ Nome = "Propriedades do Sistema"; Comando = "sysdm.cpl" }
   @{ Nome = "Som"; Comando = "mmsys.cpl" }
   @{ Nome = "Firewall do Windows Defender"; Comando = "firewall.cpl" }
   @{ Nome = "Gerenciamento de Disco"; Comando = "diskmgmt.msc" }
-  @{ Nome = "Editor de Politicas de Grupo Local"; Comando = "gpedit.msc" }
-  @{ Nome = "Servicos do Windows"; Comando = "services.msc" }
+  @{ Nome = "Editor de Políticas de Grupo Local"; Comando = "gpedit.msc" }
+  @{ Nome = "Serviços do Windows"; Comando = "services.msc" }
   @{ Nome = "Agendador de Tarefas"; Comando = "taskschd.msc" }
   @{ Nome = "Gerenciador de Dispositivos"; Comando = "devmgmt.msc" }
 )
@@ -87,7 +87,7 @@ function Build-ConfigTab {
 
   # --- Paineis classicos ---
   $t2 = New-Object System.Windows.Controls.TextBlock
-  $t2.Text = "PAINEIS CLASSICOS (ATALHO RAPIDO)"
+  $t2.Text = "PAINÉIS CLÁSSICOS (ATALHO RÁPIDO)"
   $t2.Style = $window.FindResource("Rotulo")
   $t2.Margin = "2,0,0,8"
   $painel.Children.Add($t2) | Out-Null
@@ -151,7 +151,7 @@ function Build-ConfigTab {
     try {
       $setStatus.Invoke("Rodando SFC -- isso demora alguns minutos, aguarde...") | Out-Null
       $r = (sfc /scannow 2>&1) -join " "
-      $setStatus.Invoke("SFC concluido.") | Out-Null
+      $setStatus.Invoke("SFC concluído.") | Out-Null
     } catch {}
   }.GetNewClosure())
   $gradeReparos.Children.Add($btnReparo2) | Out-Null

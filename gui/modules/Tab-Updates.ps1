@@ -1,7 +1,9 @@
-# Aba "Atualizacoes" -- 3 perfis de Windows Update, igual o WinUtil:
-# Recomendado (adia atualizacao de recurso, mantem seguranca em dia),
-# Padrao do Windows (desfaz tudo isso), e Desativado (pausa por
-# completo -- avisamos claramente o risco de seguranca).
+﻿# Aba "Atualizações" -- 3 perfis de Windows Update, igual o WinUtil:
+# Recomendado (adia atualização de recurso, mantém segurança em dia),
+# Padrão do Windows (desfaz tudo isso), e Desativado (pausa por
+# completo -- avisamos claramente o risco de segurança). Cada perfil
+# mostra o que muda tecnicamente, pra pessoa saber exatamente o que
+# vai acontecer antes de clicar.
 function Build-UpdatesTab {
   param($window, $setStatus)
 
@@ -17,8 +19,9 @@ function Build-UpdatesTab {
   $raiz.Children.Add($titulo) | Out-Null
 
   $sub = New-Object System.Windows.Controls.TextBlock
-  $sub.Text = "Cada perfil troca a configuracao de update de uma vez. Reinicie o Windows depois de trocar."
+  $sub.Text = "Cada perfil troca a configuração de update de uma vez. É sempre reversível -- clique em 'Padrão do Windows' a qualquer momento pra desfazer. Reinicie o Windows depois de trocar."
   $sub.Foreground = $window.FindResource("BrushMuted")
+  $sub.TextWrapping = "Wrap"
   $sub.Margin = "0,0,0,20"
   $raiz.Children.Add($sub) | Out-Null
 
@@ -28,7 +31,7 @@ function Build-UpdatesTab {
   $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
   $auPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
 
-  function New-CartaoPerfil($window, $titulo, $desc, $itens, $corBotao, $acao, $nomeBotao) {
+  function New-CartaoPerfil($window, $titulo, $desc, $itens, $corBotao, $acao, $nomeBotao, $detalhes) {
     $borda = New-Object System.Windows.Controls.Border
     $borda.BorderBrush = $window.FindResource("BrushBorder")
     $borda.BorderThickness = 1
@@ -68,9 +71,22 @@ function Build-UpdatesTab {
     $btn.Name = $nomeBotao
     $btn.Content = "Aplicar este perfil"
     $btn.Style = $window.FindResource($corBotao)
-    $btn.Margin = "0,14,0,0"
+    $btn.Margin = "0,14,0,10"
     $btn.Add_Click($acao)
     $painel.Children.Add($btn) | Out-Null
+
+    $expander = New-Object System.Windows.Controls.Expander
+    $expander.Header = "Ver o que muda tecnicamente"
+    $expander.Foreground = $window.FindResource("BrushMuted")
+    $expander.FontSize = 11.5
+    $txtDetalhes = New-Object System.Windows.Controls.TextBlock
+    $txtDetalhes.Text = ($detalhes -join "`n")
+    $txtDetalhes.Foreground = $window.FindResource("BrushMuted")
+    $txtDetalhes.FontSize = 11
+    $txtDetalhes.TextWrapping = "Wrap"
+    $txtDetalhes.Margin = "0,8,0,0"
+    $expander.Content = $txtDetalhes
+    $painel.Children.Add($expander) | Out-Null
 
     return $borda
   }
@@ -92,7 +108,7 @@ function Build-UpdatesTab {
   $acaoPadrao = {
     try {
       Remove-Item -Path $wuPath -Recurse -Force -ErrorAction SilentlyContinue
-      $setStatus.Invoke("on: politicas do OtimizadorPro removidas -- Windows Update volta ao padrao de fabrica.") | Out-Null
+      $setStatus.Invoke("on: políticas do OtimizadorPro removidas -- Windows Update volta ao padrão de fábrica.") | Out-Null
     } catch {
       $setStatus.Invoke("AVISO: precisa ser Administrador pra essa parte.") | Out-Null
     }
@@ -105,34 +121,59 @@ function Build-UpdatesTab {
       Set-ItemProperty -Path $auPath -Name "NoAutoUpdate" -Value 1 -Type DWord -Force
       Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
       Set-Service -Name wuauserv -StartupType Disabled -ErrorAction SilentlyContinue
-      $setStatus.Invoke("on: Windows Update pausado. AVISO: voce fica sem atualizacao de seguranca enquanto isso -- use 'Padrao do Windows' pra reverter quando quiser.") | Out-Null
+      $setStatus.Invoke("on: Windows Update pausado. AVISO: você fica sem atualização de segurança enquanto isso -- use 'Padrão do Windows' pra reverter quando quiser.") | Out-Null
     } catch {
       $setStatus.Invoke("AVISO: precisa ser Administrador pra essa parte.") | Out-Null
     }
   }.GetNewClosure()
 
-  $cartao1 = New-CartaoPerfil $window "Recomendado" "Equilibrio entre seguranca e estabilidade." @(
-    "Adia atualizacao de recurso por 365 dias"
-    "Adia atualizacao de qualidade por 4 dias"
-    "Exclui driver da atualizacao automatica"
-    "Evita reiniciar sozinho com voce logado"
-  ) "BtnPrimary" $acaoRecomendado "BtnUpdatePerfilRecomendado"
+  $cartao1 = New-CartaoPerfil $window "Recomendado" "Equilíbrio entre segurança e estabilidade. Atualização de segurança continua chegando, só a de recurso (que costuma trazer bug novo) é adiada." @(
+    "Adia atualização de recurso por 365 dias"
+    "Adia atualização de qualidade (segurança) por só 4 dias -- tempo de deixar passar o pior bug"
+    "Exclui driver da atualização automática (você escolhe quando trocar driver)"
+    "Evita reiniciar sozinho enquanto você está logado/jogando"
+  ) "BtnPrimary" $acaoRecomendado "BtnUpdatePerfilRecomendado" @(
+    "Cria/edita HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate:"
+    "  DeferFeatureUpdatesPeriodInDays = 365"
+    "  DeferQualityUpdatesPeriodInDays = 4"
+    "  ExcludeWUDriversInQualityUpdate = 1"
+    "Cria/edita HKLM\...\WindowsUpdate\AU:"
+    "  NoAutoRebootWithLoggedOnUsers = 1"
+    "O serviço do Windows Update continua ligado o tempo todo."
+  )
 
-  $cartao2 = New-CartaoPerfil $window "Padrao do Windows" "Remove as politicas do OtimizadorPro, devolve controle total ao Windows." @(
-    "Restaura comportamento padrao de fabrica"
-    "Use pra desfazer o perfil Recomendado ou Desativado"
-  ) "BtnGhost" $acaoPadrao "BtnUpdatePerfilPadrao"
+  $cartao2 = New-CartaoPerfil $window "Padrão do Windows" "Remove as políticas do OtimizadorPro, devolve controle total ao Windows." @(
+    "Restaura comportamento padrão de fábrica"
+    "Use pra desfazer o perfil Recomendado ou Desativado a qualquer momento"
+  ) "BtnGhost" $acaoPadrao "BtnUpdatePerfilPadrao" @(
+    "Apaga por completo a chave HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    "e tudo dentro dela (incluindo a subchave AU)."
+    "Sem essas chaves, o Windows usa o comportamento de fábrica: baixa e instala"
+    "atualização de recurso e de segurança no tempo normal da Microsoft."
+  )
 
-  $cartao3 = New-CartaoPerfil $window "Desativar" "AVANCADO -- pausa atualizacao por completo." @(
-    "Desliga o servico de Windows Update"
-    "Voce PARA de receber correcao de seguranca"
-    "So recomendado por um periodo curto e especifico"
-  ) "BtnGhost" $acaoDesativar "BtnUpdatePerfilDesativar"
+  $cartao3 = New-CartaoPerfil $window "Desativar" "AVANÇADO -- pausa atualização por completo. Só recomendado por um período curto e específico (ex: gravação/campeonato), nunca deixado ligado por muito tempo." @(
+    "Desliga o serviço de Windows Update (wuauserv)"
+    "Você PARA de receber TODA correção de segurança, não só a de recurso"
+  ) "BtnGhost" $acaoDesativar "BtnUpdatePerfilDesativar" @(
+    "Cria/edita HKLM\...\WindowsUpdate\AU: NoAutoUpdate = 1"
+    "Para o serviço 'wuauserv' (Windows Update) e muda o tipo de"
+    "inicialização dele pra Desabilitado -- não volta a rodar nem no"
+    "próximo boot, até você aplicar 'Padrão do Windows' de novo."
+  )
 
   $grade.Children.Add($cartao1) | Out-Null
   $grade.Children.Add($cartao2) | Out-Null
   $grade.Children.Add($cartao3) | Out-Null
   $raiz.Children.Add($grade) | Out-Null
+
+  $avisoFinal = New-Object System.Windows.Controls.TextBlock
+  $avisoFinal.Text = "Nenhum perfil desliga o Windows Defender. Antivírus continua funcionando em qualquer um dos três."
+  $avisoFinal.Foreground = $window.FindResource("BrushMuted")
+  $avisoFinal.FontSize = 11.5
+  $avisoFinal.TextWrapping = "Wrap"
+  $avisoFinal.Margin = "0,16,0,0"
+  $raiz.Children.Add($avisoFinal) | Out-Null
 
   $sv = New-Object System.Windows.Controls.ScrollViewer
   $sv.Content = $raiz

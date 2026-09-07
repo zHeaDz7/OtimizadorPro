@@ -1,4 +1,4 @@
-# Aba "Criador Win11" -- so trabalha com midia OFICIAL da Microsoft.
+﻿# Aba "Criador Win11" -- só trabalha com mídia OFICIAL da Microsoft.
 # Nada de ISO modificada/"gamer edition" de terceiro -- e por isso que
 # a opcao 1 manda pro site oficial, e a opcao 2 so aceita uma ISO que o
 # usuario ja baixou (presumivelmente da Microsoft) pra gravar num pendrive.
@@ -12,7 +12,7 @@ function Build-Win11Tab {
   $raiz.Content = $painel
 
   $titulo = New-Object System.Windows.Controls.TextBlock
-  $titulo.Text = "Criador de midia do Windows 11"
+  $titulo.Text = "Criador de mídia do Windows 11"
   $titulo.Foreground = $window.FindResource("BrushInk")
   $titulo.FontSize = 18
   $titulo.FontWeight = "Bold"
@@ -20,7 +20,7 @@ function Build-Win11Tab {
   $painel.Children.Add($titulo) | Out-Null
 
   $sub = New-Object System.Windows.Controls.TextBlock
-  $sub.Text = "So trabalha com midia OFICIAL da Microsoft. Nada de ISO alterada ou de terceiro."
+  $sub.Text = "Só trabalha com mídia OFICIAL da Microsoft. Nada de ISO alterada ou de terceiro."
   $sub.Foreground = $window.FindResource("BrushMuted")
   $sub.TextWrapping = "Wrap"
   $sub.Margin = "0,0,0,20"
@@ -45,7 +45,7 @@ function Build-Win11Tab {
   $p1.Children.Add($t1) | Out-Null
 
   $d1 = New-Object System.Windows.Controls.TextBlock
-  $d1.Text = "Abre a pagina oficial da Microsoft (microsoft.com) onde voce baixa a Media Creation Tool ou a ISO direto -- do jeito que a propria Microsoft recomenda. Nao baixamos nada por conta propria nessa etapa, so abrimos o navegador."
+  $d1.Text = "Abre a página oficial da Microsoft (microsoft.com) onde você baixa a Media Creation Tool ou a ISO direto -- do jeito que a própria Microsoft recomenda. Não baixamos nada por conta própria nessa etapa, só abrimos o navegador."
   $d1.Foreground = $window.FindResource("BrushMuted")
   $d1.TextWrapping = "Wrap"
   $d1.FontSize = 12.5
@@ -56,7 +56,7 @@ function Build-Win11Tab {
   $barra1.Orientation = "Horizontal"
   $btnAbrirSite = New-Object System.Windows.Controls.Button
   $btnAbrirSite.Name = "BtnWin11AbrirSite"
-  $btnAbrirSite.Content = "Abrir pagina oficial de download do Windows 11"
+  $btnAbrirSite.Content = "Abrir página oficial de download do Windows 11"
   $btnAbrirSite.Style = $window.FindResource("BtnPrimary")
   $barra1.Children.Add($btnAbrirSite) | Out-Null
   $p1.Children.Add($barra1) | Out-Null
@@ -64,7 +64,7 @@ function Build-Win11Tab {
   $btnAbrirSite.Add_Click({
     try {
       Start-Process "https://www.microsoft.com/software-download/windows11"
-      $setStatus.Invoke("Pagina oficial da Microsoft aberta no navegador.") | Out-Null
+      $setStatus.Invoke("Página oficial da Microsoft aberta no navegador.") | Out-Null
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnWin11AbrirSite: $_" | Out-File $debugLog -Append
@@ -84,7 +84,7 @@ function Build-Win11Tab {
   $b2.Child = $p2
 
   $t2 = New-Object System.Windows.Controls.TextBlock
-  $t2.Text = "2. Gravar uma ISO oficial num pendrive bootavel"
+  $t2.Text = "2. Gravar uma ISO oficial num pendrive bootável"
   $t2.Foreground = $window.FindResource("BrushInk")
   $t2.FontWeight = "Bold"
   $t2.FontSize = 15
@@ -92,7 +92,7 @@ function Build-Win11Tab {
   $p2.Children.Add($t2) | Out-Null
 
   $d2 = New-Object System.Windows.Controls.TextBlock
-  $d2.Text = "Use depois de ja ter baixado o arquivo .iso oficial da Microsoft (passo 1). Isso APAGA TUDO que tiver no pendrive escolhido -- formata e copia os arquivos da ISO. So funciona pra PC com boot UEFI (praticamente todo PC feito depois de 2013). PC muito antigo com BIOS Legacy: use a Media Creation Tool oficial no passo 1 em vez desse gravador."
+  $d2.Text = "Use depois de já ter baixado o arquivo .iso oficial da Microsoft (passo 1). Isso APAGA TUDO que tiver no pendrive escolhido -- formata e copia os arquivos da ISO. Só funciona pra PC com boot UEFI (praticamente todo PC feito depois de 2013). PC muito antigo com BIOS Legacy: use a Media Creation Tool oficial no passo 1 em vez desse gravador."
   $d2.Foreground = $window.FindResource("BrushMuted")
   $d2.TextWrapping = "Wrap"
   $d2.FontSize = 12.5
@@ -191,7 +191,7 @@ function Build-Win11Tab {
 
   # Linha: confirmar apagando tudo
   $avisoApagar = New-Object System.Windows.Controls.TextBlock
-  $avisoApagar.Text = "ATENCAO: grava vai APAGAR TUDO no pendrive escolhido. Pra confirmar, digite a letra do drive (ex: E) na caixa abaixo."
+  $avisoApagar.Text = "ATENÇÃO: gravar vai APAGAR TUDO no pendrive escolhido. Pra confirmar, digite a letra do drive (ex: E) na caixa abaixo."
   $avisoApagar.Foreground = $window.FindResource("BrushBad")
   $avisoApagar.TextWrapping = "Wrap"
   $avisoApagar.FontSize = 12.5
@@ -217,21 +217,21 @@ function Build-Win11Tab {
     try {
       $isoPath = $txtIso.Text
       if (-not $isoPath -or $isoPath -eq "(nenhuma ISO selecionada)" -or -not (Test-Path $isoPath)) {
-        $setStatus.Invoke("Escolha um arquivo .iso valido primeiro.") | Out-Null
+        $setStatus.Invoke("Escolha um arquivo .iso válido primeiro.") | Out-Null
         return
       }
       $itemSel = $comboUsb.SelectedItem
       if (-not $itemSel -or -not $itemSel.Tag) {
-        $setStatus.Invoke("Escolha um pendrive valido primeiro.") | Out-Null
+        $setStatus.Invoke("Escolha um pendrive válido primeiro.") | Out-Null
         return
       }
       $infoDisco = $itemSel.Tag
       if (-not $infoDisco.DriveLetter) {
-        $setStatus.Invoke("Esse pendrive nao tem letra de unidade atribuida -- use o Gerenciamento de Disco pra atribuir uma letra primeiro.") | Out-Null
+        $setStatus.Invoke("Esse pendrive não tem letra de unidade atribuída -- use o Gerenciamento de Disco pra atribuir uma letra primeiro.") | Out-Null
         return
       }
       if ($txtConfirma.Text.Trim().ToUpper() -ne "$($infoDisco.DriveLetter)".ToUpper()) {
-        $setStatus.Invoke("Confirmacao nao bate com a letra do drive selecionado ($($infoDisco.DriveLetter)). Nada foi feito.") | Out-Null
+        $setStatus.Invoke("Confirmação não bate com a letra do drive selecionado ($($infoDisco.DriveLetter)). Nada foi feito.") | Out-Null
         return
       }
 
@@ -252,9 +252,9 @@ function Build-Win11Tab {
       Dismount-DiskImage -ImagePath $isoPath | Out-Null
 
       if ($codigoRobocopy -lt 8) {
-        $setStatus.Invoke("Pronto: pendrive $($infoDisco.DriveLetter): gravado com a midia oficial do Windows 11.") | Out-Null
+        $setStatus.Invoke("Pronto: pendrive $($infoDisco.DriveLetter): gravado com a mídia oficial do Windows 11.") | Out-Null
       } else {
-        $setStatus.Invoke("Copia terminou com avisos (codigo robocopy $codigoRobocopy) -- confira o pendrive antes de usar.") | Out-Null
+        $setStatus.Invoke("Cópia terminou com avisos (codigo robocopy $codigoRobocopy) -- confira o pendrive antes de usar.") | Out-Null
       }
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"

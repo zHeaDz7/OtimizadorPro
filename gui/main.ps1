@@ -1,4 +1,4 @@
-# OtimizadorPro GUI -- janela grafica (WPF) que reaproveita os scripts
+﻿# OtimizadorPro GUI -- janela grafica (WPF) que reaproveita os scripts
 # .ps1 ja testados no menu de texto (Otimizar.bat). E um programa NOVO,
 # separado -- o menu de texto continua funcionando exatamente como
 # antes. Continua tudo em PowerShell puro, sem compilar nada: o .xaml
@@ -198,7 +198,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
       <TabItem Header="Instalar" x:Name="TabInstalar"/>
       <TabItem Header="Ajustes" x:Name="TabAjustes"/>
       <TabItem Header="Config" x:Name="TabConfig"/>
-      <TabItem Header="Atualizacoes" x:Name="TabUpdates"/>
+      <TabItem Header="Atualizações" x:Name="TabUpdates"/>
       <TabItem Header="Criador Win11" x:Name="TabWin11"/>
     </TabControl>
   </DockPanel>

@@ -1,4 +1,4 @@
-# Aba "Instalar" -- catalogo de programas via winget (Windows Package
+﻿# Aba "Instalar" -- catálogo de programas via winget (Windows Package
 # Manager, oficial da Microsoft, ja vem no Windows 10/11 atualizado).
 # Cada ID abaixo foi conferido rodando "winget show --id X --exact" de
 # verdade antes de entrar aqui.
@@ -20,24 +20,24 @@ $Global:CatalogoApps = @(
   @{ Nome = "Brave"; Id = "Brave.Brave"; Cat = "Navegadores" }
   @{ Nome = "Opera GX"; Id = "Opera.OperaGX"; Cat = "Navegadores" }
 
-  # --- Comunicacao ---
-  @{ Nome = "Discord"; Id = "Discord.Discord"; Cat = "Comunicacao" }
-  @{ Nome = "Telegram"; Id = "Telegram.TelegramDesktop"; Cat = "Comunicacao" }
-  @{ Nome = "Zoom"; Id = "Zoom.Zoom"; Cat = "Comunicacao" }
-  @{ Nome = "Microsoft Teams"; Id = "Microsoft.Teams"; Cat = "Comunicacao" }
+  # --- Comunicação ---
+  @{ Nome = "Discord"; Id = "Discord.Discord"; Cat = "Comunicação" }
+  @{ Nome = "Telegram"; Id = "Telegram.TelegramDesktop"; Cat = "Comunicação" }
+  @{ Nome = "Zoom"; Id = "Zoom.Zoom"; Cat = "Comunicação" }
+  @{ Nome = "Microsoft Teams"; Id = "Microsoft.Teams"; Cat = "Comunicação" }
 
-  # --- Multimidia ---
-  @{ Nome = "VLC Media Player"; Id = "VideoLAN.VLC"; Cat = "Multimidia" }
-  @{ Nome = "OBS Studio"; Id = "OBSProject.OBSStudio"; Cat = "Multimidia" }
-  @{ Nome = "Spotify"; Id = "Spotify.Spotify"; Cat = "Multimidia" }
-  @{ Nome = "foobar2000"; Id = "PeterPawlowski.foobar2000"; Cat = "Multimidia" }
-  @{ Nome = "Audacity"; Id = "Audacity.Audacity"; Cat = "Multimidia" }
-  @{ Nome = "HandBrake"; Id = "HandBrake.HandBrake"; Cat = "Multimidia" }
-  @{ Nome = "ShareX"; Id = "ShareX.ShareX"; Cat = "Multimidia" }
-  @{ Nome = "IrfanView"; Id = "IrfanSkiljan.IrfanView"; Cat = "Multimidia" }
-  @{ Nome = "Paint.NET"; Id = "dotPDN.PaintDotNet"; Cat = "Multimidia" }
-  @{ Nome = "GIMP"; Id = "GIMP.GIMP"; Cat = "Multimidia" }
-  @{ Nome = "Blender"; Id = "BlenderFoundation.Blender"; Cat = "Multimidia" }
+  # --- Multimídia ---
+  @{ Nome = "VLC Media Player"; Id = "VideoLAN.VLC"; Cat = "Multimídia" }
+  @{ Nome = "OBS Studio"; Id = "OBSProject.OBSStudio"; Cat = "Multimídia" }
+  @{ Nome = "Spotify"; Id = "Spotify.Spotify"; Cat = "Multimídia" }
+  @{ Nome = "foobar2000"; Id = "PeterPawlowski.foobar2000"; Cat = "Multimídia" }
+  @{ Nome = "Audacity"; Id = "Audacity.Audacity"; Cat = "Multimídia" }
+  @{ Nome = "HandBrake"; Id = "HandBrake.HandBrake"; Cat = "Multimídia" }
+  @{ Nome = "ShareX"; Id = "ShareX.ShareX"; Cat = "Multimídia" }
+  @{ Nome = "IrfanView"; Id = "IrfanSkiljan.IrfanView"; Cat = "Multimídia" }
+  @{ Nome = "Paint.NET"; Id = "dotPDN.PaintDotNet"; Cat = "Multimídia" }
+  @{ Nome = "GIMP"; Id = "GIMP.GIMP"; Cat = "Multimídia" }
+  @{ Nome = "Blender"; Id = "BlenderFoundation.Blender"; Cat = "Multimídia" }
 
   # --- Ferramentas / Sistema ---
   @{ Nome = "PowerToys"; Id = "Microsoft.PowerToys"; Cat = "Ferramentas e Sistema" }
@@ -99,7 +99,7 @@ function Build-InstalarTab {
 
   $btnVerInstalados = New-Object System.Windows.Controls.Button
   $btnVerInstalados.Name = "BtnVerInstalados"
-  $btnVerInstalados.Content = "Marcar ja instalados"
+  $btnVerInstalados.Content = "Marcar já instalados"
   $btnVerInstalados.Style = $window.FindResource("BtnGhost")
 
   $barra.Children.Add($btnInstalar) | Out-Null
@@ -143,11 +143,11 @@ function Build-InstalarTab {
 
   $btnVerInstalados.Add_Click({
     try {
-      $setStatus.Invoke("Verificando o que ja esta instalado (pode demorar um pouco)...") | Out-Null
+      $setStatus.Invoke("Verificando o que já está instalado (pode demorar um pouco)...") | Out-Null
       foreach ($id in @($checkboxesPorApp.Keys)) {
         if (Test-AppInstalado $id) { $checkboxesPorApp[$id].IsChecked = $true }
       }
-      $setStatus.Invoke("Verificacao concluida.") | Out-Null
+      $setStatus.Invoke("Verificação concluída.") | Out-Null
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnVerInstalados: $_" | Out-File $debugLog -Append
