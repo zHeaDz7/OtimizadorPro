@@ -1,0 +1,330 @@
+OTIMIZADOR PRO
+==============
+
+O que é: um conjunto de scripts (PowerShell puro, sem executável compilado,
+sem nada escondido) que aplica ajustes SEGUROS e OFICIAIS do Windows/driver
+pra melhorar desempenho em QUALQUER jogo e QUALQUER PC -- não é focado num
+jogo ou launcher específico. Detecta automaticamente os jogos instalados
+via Steam/Epic pra aplicar exclusões e otimizações neles, e todo o resto
+(RAM, CPU, GPU, disco, rede, BIOS) funciona igual não importa o que você
+jogue.
+
+Por que os scripts são de texto (não um .exe): assim você (ou qualquer
+cliente seu) pode abrir cada arquivo .ps1 num bloco de notas e ler
+exatamente o que ele faz, linha por linha, antes de rodar. Nenhuma
+ferramenta de otimização séria deveria pedir pra você confiar sem poder
+ver o código.
+
+COMO USAR
+---------
+Clique duas vezes em "Otimizar.bat" (ele vai pedir permissão de
+Administrador -- várias opções precisam disso). Escolha uma opção do
+menu, ou aperte T pra rodar as automáticas de uma vez.
+
+SEGURANÇA
+---------
+0R. Cria um Ponto de Restauração do Windows antes de qualquer ajuste --
+    recomendado fazer isso primeiro. Se algo não te agradar depois, dá
+    pra voltar o Windows inteiro pro estado de antes em poucos cliques
+    (Painel de Controle > Recuperação > Abrir restauração do sistema).
+
+DIAGNÓSTICO (não muda nada no PC)
+----------------------------------
+1. RAM livre, tipo de cada disco (HD ou SSD), e em qual disco cada jogo
+   detectado está instalado -- mostra exatamente onde está o gargalo.
+2. Lista os jogos Steam/Epic instalados.
+I. Verifica onde está o arquivo de paginação (memória virtual) -- avisa
+   se ele estiver num HD mecânico enquanto existe SSD livre na máquina
+   (isso pode causar lentidão forte quando a RAM se esgota).
+
+SISTEMA
+-------
+3. Exclusão no Windows Defender pras pastas de jogo -- o antivírus
+   continua ligado e protegendo o resto do PC, só para de escanear em
+   tempo real arquivo de jogo lido o tempo todo (causa comum de engasgo).
+4. Tira as pastas de jogo da indexação do Windows Search (busca do menu
+   Iniciar) -- ninguém procura arquivo de jogo por lá, só gasta disco à toa.
+5. Ativa o plano de energia "Desempenho Máximo" (oficial da Microsoft,
+   só fica escondido por padrão). Impede a CPU de reduzir velocidade
+   sozinha durante o jogo.
+6. Ajustes gerais: Game Mode ligado, gravação em segundo plano do Xbox
+   Game Bar desligada, efeitos visuais ajustados pra desempenho.
+7. Ajusta a prioridade de CPU/GPU que o Windows dá pra jogos (MMCSS) --
+   uma configuração multimídia oficial da Microsoft que raramente vem
+   configurada do jeito ideal por padrão.
+8. Reduz latência de rede com 4 ajustes: desliga o algoritmo de Nagle
+   (que atrasa pacote pequeno de propósito), a economia de energia da
+   placa de rede, o "NetworkThrottlingIndex" (o Windows limita
+   processamento de rede pra sobrar recurso pra tarefas multimídia --
+   como jogo usa o mesmo mecanismo, isso pode atrapalhar o próprio
+   jogo), e o "Large Send Offload" (pode causar picos de latência em
+   alguns drivers de rede).
+9. HAGS (Agendamento de GPU por Hardware) -- um recurso oficial do
+   Windows que deixa a própria placa de vídeo organizar sua fila de
+   trabalho. Ajuda a maioria das GPUs/drivers recentes. Teste e veja se
+   melhora no seu caso -- em placas mais antigas pode não fazer diferença.
+J. Troca o DNS dos adaptadores de rede ativos por um servidor mais
+   rápido (Cloudflare, 1.1.1.1) -- só acelera resolver nome de
+   servidor/site (ex: entrar num servidor de jogo online), não afeta o
+   jogo já conectado. Reversível a qualquer momento (volta pro
+   automático do roteador/provedor).
+K. Desliga as "melhorias de áudio" do Windows (equalizador/efeitos que
+   ficam ligados por padrão em cada dispositivo de som) -- essas
+   melhorias podem causar um pequeno atraso ou estalo no áudio,
+   irrelevante fora de jogo mas perceptível quando o tempo de reação
+   importa.
+L. Manutenção de disco: roda TRIM nos SSDs detectados (mantém a
+   velocidade de escrita do SSD no longo prazo). Nunca mexe em HD
+   mecânico com isso (desfragmentar SSD não ajuda e desgasta à toa).
+M. Desliga "Otimizações de Tela Cheia" do Windows pro executável de
+   cada jogo detectado -- é a mesma correção manual que o Windows já
+   oferece em Propriedades > Compatibilidade, só automatizamos pra
+   todos os jogos de uma vez. Resolve tela preta/travamento comum ao
+   dar Alt+Tab em jogo de tela cheia exclusiva.
+N. Desliga a telemetria do Windows (serviço "DiagTrack", que manda
+   dado de uso em segundo plano pra Microsoft). Fica de fora do "Rodar
+   TUDO" de propósito porque é mais uma escolha de privacidade do que
+   de desempenho puro -- só roda se você escolher. Reversível a
+   qualquer momento pelo services.msc.
+P. Verifica se seu monitor está configurado na taxa de atualização
+   máxima que ele suporta (Hz) -- muita gente troca de monitor (ex: pra
+   um de 144Hz) e o Windows continua usando a taxa antiga, travando
+   metade do benefício da placa de vídeo sem perceber.
+Q. Liga o Assistente de Armazenamento do Windows (Storage Sense) --
+   limpa temporário, Lixeira e Downloads parados automaticamente toda
+   semana. Disco cheio (principalmente SSD no limite) deixa o PC e os
+   jogos mais lentos.
+R. Desliga o "Delivery Optimization" do Windows Update -- por padrão o
+   Windows também usa sua internet pra mandar pedaço de atualização pra
+   OUTROS PCs (tipo torrent) enquanto baixa a sua própria atualização,
+   podendo consumir banda bem na hora que você tá jogando. Desligar só
+   impede esse compartilhamento; a atualização continua vindo normal,
+   direto da Microsoft.
+
+REDE / PING / LATÊNCIA
+-----------------------
+PG. Diagnóstico de ping e latência -- não muda nada, só mostra. Pinga
+    seu roteador (rede local) e a internet (1.1.1.1/8.8.8.8) separado,
+    pra você descobrir se um ping alto é da SUA rede (Wi-Fi, roteador)
+    ou é do provedor/servidor do jogo, antes de sair mexendo à toa.
+    Também avisa se você está em Wi-Fi (que tem mais lag/oscilação que
+    cabo). Faz parte do "Rodar TUDO" (só diagnostica, não muda nada).
+GR. Gera um guia de texto com dicas do lado do ROTEADOR que ajudam
+    ping/estabilidade mas não dão pra automatizar por script (cada
+    roteador tem painel diferente): QoS, Bufferbloat/SQM, canal de
+    Wi-Fi congestionado, reiniciar o roteador de vez em quando. Faz
+    parte do "Rodar TUDO".
+IM. Interrupt Moderation da placa de rede -- desliga o agrupamento de
+    avisos (interrupções) que a placa manda pro processador, fazendo
+    cada pacote ser entregue na hora em vez de esperar agrupar com
+    outros. Menos latência, um pouco mais de uso de CPU. Nem toda
+    placa/driver tem essa opção -- se a sua não tiver, avisa em vez de
+    fingir que mudou algo. Fica de fora do "Rodar TUDO" porque troca
+    latência por CPU, é uma escolha sua.
+NR. Repara a rede resetando o Winsock e a pilha TCP/IP pro padrão do
+    Windows -- NÃO é otimização, é conserto pra quando a internet
+    começa a se comportar estranho (depois de instalar/remover VPN,
+    antivírus, etc). Sempre pede confirmação porque precisa reiniciar
+    o PC e desfaz proxy/VPN configurados manualmente. Fica de fora do
+    "Rodar TUDO" de propósito.
+
+REGISTRO AVANÇADO (input/desempenho)
+-------------------------------------
+Esses itens são diferentes dos outros: antes de mexer, mostram o status
+atual e perguntam "Aplicar, Reverter ou cancelar?" -- você sempre pode
+apertar Enter pra cancelar sem mudar nada, e sempre pode escolher a
+mesma letra de novo depois pra reverter. Por isso ficam de fora do
+"Rodar TUDO" (pedem uma escolha sua).
+S. Mouse 1:1 físico -- desliga a aceleração do mouse via registro
+   (mesma base do item B, mais explícito sobre a curva X/Y).
+U. Desliga a Suspensão Seletiva de USB -- reduz um micro-atraso que o
+   Windows pode causar ao "acordar" o mouse/teclado depois de ficarem
+   parados um instante.
+V. Timer do kernel de alta precisão via bcdedit (recurso oficial do
+   Windows) -- pode reduzir microstutter. Precisa reiniciar o PC pra
+   valer, tanto pra aplicar quanto pra reverter.
+W. Aumenta a fila de eventos de mouse/teclado (MouseDataQueueSize) --
+   ajuda a evitar que algum movimento se perca em mouses de taxa de
+   report muito alta. Precisa reiniciar.
+X. ISLC -- mantém o kernel e os drivers sempre na RAM física, sem
+   paginar pro disco. Só aplicado se você tiver 8GB+ de RAM. Precisa
+   reiniciar.
+Y. Bloqueia os atalhos de teclado do StickyKeys/ToggleKeys/FilterKeys
+   (Shift 5x, Num Lock segurado, Shift 8s) -- evita que um popup de
+   Acessibilidade do Windows abra sem querer no meio do jogo. Os
+   recursos continuam disponíveis normalmente em Configurações.
+Z. Prioridade de CPU em primeiro plano + prioridade "Acima do Normal"
+   pros executáveis dos jogos detectados (nunca "Tempo Real", que pode
+   travar o PC se o jogo travar segurando prioridade máxima).
+H. CPU/GPU Avançado -- abre um submenu com mais 3 itens (mesmo padrão
+   de status + Aplicar/Reverter/cancelar):
+     1. Core Parking desligado -- impede o Windows de "adormecer"
+        núcleos da CPU pra economizar energia, mantendo todos sempre
+        prontos (evita microstutter ao acordar um núcleo parado). Em
+        algumas CPUs/drivers o Windows trava esse valor e não deixa
+        mudar -- nesse caso o script avisa em vez de fingir que aplicou.
+     2. MSI Mode da GPU -- muda o jeito que a placa de vídeo avisa o
+        processador que precisa de atenção pra um método mais moderno
+        e eficiente (mesma mudança que a ferramenta "MSI Mode Util"
+        faz). Pode reduzir picos de latência.
+     3. TDR Delay maior -- aumenta o tempo que o Windows espera a GPU
+        responder antes de assumir que travou e reiniciar o driver.
+        Evita o erro "driver de exibição parou de responder" falso-
+        positivo em cenas muito pesadas.
+
+LIMPEZA
+-------
+F. Limpeza profunda: temporários do usuário e do sistema, Prefetch,
+   lista de Recentes, cache de download do Windows Update, cache de
+   shader (DirectX/NVIDIA/AMD), e Lixeira. Nada aqui apaga documento,
+   foto, save de jogo ou configuração -- só arquivo temporário que o
+   próprio Windows/driver/jogo recria sozinho quando precisar. Faz
+   parte do "Rodar TUDO".
+G. Desfragmenta HD mecânico (nunca SSD -- desfragmentar SSD não ajuda
+   em nada e só desgasta à toa). Pode demorar de minutos a horas
+   dependendo do tamanho/fragmentação, por isso fica de fora do "Rodar
+   TUDO" -- só roda quando você escolher.
+
+MANUTENÇÃO
+----------
+A. Libera memória RAM na hora -- pede pros programas em segundo plano
+   devolverem memória que reservaram mas não estão usando agora (a
+   mesma ação do botão "Reduzir memória" no Gerenciador de Tarefas, só
+   que em todos os processos de uma vez). Não fecha nada, não perde
+   nada -- é reversível instantaneamente porque o programa pega de
+   volta a memória se precisar.
+B. Desliga a aceleração do mouse (Painel de Controle > Mouse) -- melhora
+   consistência de mira em qualquer jogo. Configuração 100% nativa do
+   Windows, só automatizamos o clique.
+C. Mostra os programas usando mais RAM/CPU agora, e deixa você escolher
+   (um por um) se quer fechar algum antes de jogar. Nunca fecha nada
+   sozinho.
+D. Mostra os programas que abrem junto com o Windows -- tanto atalho na
+   pasta Inicializar quanto entrada no Registro (Run) -- e deixa você
+   escolher quais desativar, um por um. Nunca desativa nada sozinho, e
+   avisa pra não mexer em nada que você não reconheça (antivírus,
+   driver de áudio). Item do Registro fica renomeado (não apagado) --
+   você pode REATIVAR a qualquer momento por essa mesma tela.
+DU. Desinstala um programa por vez -- lista tanto programas clássicos
+   quanto apps da Microsoft Store. DIFERENTE de tudo mais nesse
+   programa: desinstalar não tem "desfazer" com um clique (precisa
+   reinstalar se mudar de ideia). Por isso: nunca em lote, sempre pede
+   pra você digitar "sim" confirmando o nome antes, e abre o
+   desinstalador OFICIAL de cada programa (visível na tela, você pode
+   cancelar lá também) em vez de forçar remoção silenciosa.
+HB. Desliga a Hibernação -- libera espaço em disco do MESMO TAMANHO da
+   sua RAM (o arquivo hiberfil.sys). Só compensa se você nunca usa
+   "Hibernar" (Suspender continua funcionando normal).
+BG. Bloqueia apps da Microsoft Store de rodar em segundo plano sem
+   estarem abertos na tela -- libera RAM/CPU que ficam sendo usados sem
+   você notar. Não afeta programas clássicos (.exe).
+SA. Desliga sugestões, apps recomendados e dicas do Windows no menu
+   Iniciar, Configurações e tela de bloqueio.
+E. Gera um guia de texto com o passo a passo exato pra configurar o
+   painel da sua placa de vídeo (detecta NVIDIA ou AMD automaticamente).
+O. Gera um guia de texto sobre configurações de BIOS/UEFI que ajudam no
+   desempenho (XMP/DOCP/EXPO, Resizable BAR, Secure Boot, TPM, CSM, Fast
+   Boot, C-States, PBO/MCE, curva de ventoinha). Como BIOS fica fora do
+   Windows e cada fabricante tem um menu diferente, não dá pra mudar
+   isso por script -- o guia detecta seu fabricante (pra dizer a tecla
+   certa de entrar na BIOS) e diagnostica o que dá pra ver do Windows
+   (ex: se sua RAM já está na velocidade máxima ou se o XMP está
+   desligado, se o Secure Boot está ativo). Cada item explica O QUE É e
+   O QUE FAZ antes de dizer como mudar, e avisa o nível de risco --
+   nada aqui incentiva overclock "no escuro".
+
+DIAGNOSTICOS EXTRAS (menu DG)
+------------------------------
+Um submenu com 14 diagnósticos que não mudam nada, só avisam: RAM em
+Dual/Single Channel, overlays/gravação rodando (Discord, GeForce
+Experience, Steam...), data do driver da GPU, Core Isolation/Memory
+Integrity (VBS), OneDrive sincronizando, temperatura/throttling de CPU,
+antivírus de terceiro instalado, controle/gamepad (Bluetooth vs cabo),
+GPU híbrida de notebook, taxa de atualização de cada monitor conectado
+(não só o principal), perfil notebook (bateria vs tomada), VPN ativa,
+Wi-Fi (canal/sinal/banda), Inicialização Rápida (Fast Startup), e
+verificação de drivers desatualizados (placa de vídeo, rede, áudio,
+armazenamento -- com opção de abrir direto a tela oficial do Windows
+Update que baixa driver testado pela Microsoft/fabricante; nunca baixa
+nem instala driver por conta própria, isso é arriscado demais pra
+automatizar sem supervisão).
+
+FERRAMENTAS E RELATÓRIOS (menu FR)
+------------------------------------
+1. Ver status de tudo que tem Aplicar/Reverter numa lista só, sem mudar
+   nada -- um "preview" antes de decidir o que ligar.
+2. Score de saúde/otimização (0-100) -- quantas otimizações já estão
+   aplicadas nessa máquina.
+3. Relatório Antes/Depois -- rode uma vez antes de otimizar, rode de
+   novo depois, e ele mostra a diferença real (RAM livre, espaço em
+   disco, plano de energia).
+4. Desfazer TUDO -- reverte de uma vez todos os itens de Registro
+   Avançado, HAGS e Delivery Optimization pro padrão do Windows. Pede
+   confirmação antes.
+5. Pausar o Windows Search por completo (não só excluir pasta de jogo
+   como o item 4 do menu principal) -- útil antes de copiar/mover muito
+   arquivo de uma vez.
+6. Ver log de auditoria -- toda vez que você aplica ou reverte algo no
+   Registro Avançado, fica registrado com data/hora, valor de antes e
+   de depois, num arquivo (Logs\auditoria.csv) que você pode abrir no
+   Excel.
+7. Exportar log da sessão -- empacota os logs num .zip fácil de mandar
+   pra quem for te ajudar se algo não funcionar como esperado.
+
+BUSCA (menu BU)
+----------------
+Digite uma palavra-chave (ex: "mouse", "rede", "limpeza") e o
+OtimizadorPro mostra quais letras/códigos do menu tem a ver com isso --
+útil quando você não lembra onde ficou uma opção especifica.
+
+O QUE ESSA FERRAMENTA NÃO FAZ (de propósito)
+---------------------------------------------
+- NÃO desliga o Windows Defender nem o Windows Update.
+- NÃO troca o sistema operacional (ao contrário de "Windows Gamer" tipo
+  GhostSpectre/KernelOS -- aquilo é ISO inteira remontada por terceiro,
+  sem suporte, e pode ser bloqueado por anticheat de jogo).
+- NÃO promete "menos recuo" nem "mira perfeita" nem nada parecido com
+  cheat. Isso aqui é otimização de hardware/sistema, não vantagem
+  dentro do jogo.
+- NÃO baixa nem instala nenhum programa de terceiro.
+- NÃO fecha programas nem desativa nada sozinho sem você escolher
+  explicitamente (itens C e D sempre perguntam antes).
+
+Todas as mudanças são reversíveis pelas configurações normais do
+Windows -- nada aqui é permanente ou irreversível.
+
+PERGUNTAS FREQUENTES
+---------------------
+"O Windows Defender/SmartScreen deu um aviso ao abrir o Otimizar.bat."
+  Normal pra scripts novos sem muito histórico de download -- por isso
+  os arquivos são .ps1/.bat legíveis, não um .exe: abra qualquer um num
+  bloco de notas e veja exatamente o que faz antes de confiar. Clique
+  em "Mais informações > Executar assim mesmo" se estiver seguro.
+
+"Apliquei uma opção e não vi diferença nenhuma."
+  Várias opções pedem reiniciar o PC (ou pelo menos deslogar/logar de
+  novo) pra valer -- o aviso "precisa reiniciar" aparece quando isso se
+  aplica. Reinicie e teste de novo.
+
+"Uma opção mostrou AVISO: precisa ser Administrador."
+  O Otimizar.bat já pede elevação ao abrir -- se ainda assim aparecer
+  esse aviso, confirme que clicou "Sim" na janela do Controle de Conta
+  de Usuário quando abriu o programa.
+
+"Quero desfazer tudo que eu apliquei."
+  Menu FR (Ferramentas e Relatórios) > opção 4, "Desfazer TUDO".
+
+"Uma opção de Registro Avançado (CPU Parking, por exemplo) disse que
+não é suportada na minha máquina."
+  Algumas configurações são travadas pelo próprio Windows/driver em
+  determinado hardware (isso é informado explicitamente, não é erro do
+  programa) -- geralmente acontece em CPU/chipset mais antigo que não
+  expõe aquele controle específico ao sistema operacional.
+
+"Como sei se alguma coisa realmente melhorou?"
+  Menu FR > opção 3, "Relatório Antes/Depois" -- rode uma vez antes de
+  otimizar, aplique as mudanças, rode de novo depois e compare.
+
+"Algo deu errado e quero ajuda."
+  Menu FR > opção 7, "Exportar log da sessão" -- gera um .zip com tudo
+  que rodou nessa sessão, pra mandar pra quem for te ajudar.

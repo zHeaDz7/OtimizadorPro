@@ -1,0 +1,176 @@
+GUIA DE BIOS/UEFI PRA DESEMPENHO EM JOGOS
+==========================================
+Placa-mae/fabricante detectado: Gigabyte Technology Co., Ltd.
+Tecla pra entrar na BIOS (aperte varias vezes assim que ligar o PC, antes
+do logo do Windows aparecer): Delete
+
+IMPORTANTE ANTES DE MEXER
+--------------------------
+- Cada fabricante organiza os menus de um jeito diferente e com nomes
+  levemente diferentes -- os nomes abaixo sao os mais comuns, mas o seu
+  pode variar um pouco (ex: "DOCP" na AMD/ASUS as vezes aparece como
+  "Ai Overclock Tuner").
+- Mude uma coisa de cada vez e reinicie pra testar. Se o PC nao ligar ou
+  a tela ficar preta depois de uma mudanca, quase toda BIOS tem uma opcao
+  "Load Optimized Defaults" / "Load Setup Defaults" (geralmente tecla F5,
+  F9 ou num menu "Save & Exit") que desfaz TUDO e volta pro padrao de
+  fabrica -- nao tem risco permanente se voce so mexer nas opcoes
+  listadas aqui.
+- So mexa no que voce entendeu. Se um nome nao bater com o que voce ve na
+  sua tela, pule e va pra proxima.
+
+------------------------------------------------------------------------
+1) XMP / DOCP / EXPO (Perfil de Memoria)
+------------------------------------------------------------------------
+O QUE E: um perfil salvo dentro do proprio pente de RAM com a velocidade
+que o fabricante testou e garante (ex: 3200MHz, 6000MHz). Sem ativar
+esse perfil, a placa-mae roda a RAM numa velocidade generica e bem mais
+baixa (JEDEC), por seguranca/compatibilidade.
+O QUE FAZ: ativa a velocidade real que voce comprou. RAM mais rapida
+ajuda MUITO em jogos que dependem de CPU, reduz microstutter e aumenta FPS minimo (o "1% low", que e o
+que voce sente como "engasgo").
+DIAGNOSTICO NESTA MAQUINA: Sua RAM ja esta rodando a 2400 MHz, igual a velocidade maxima informada pelo pente (2400 MHz). Perfil XMP/DOCP/EXPO provavelmente ja esta ativo (ou e a velocidade nativa do pente).
+RISCO: baixo. E um perfil testado e certificado pelo proprio fabricante
+da RAM -- nao e overclock "as cegas". Reversivel a qualquer momento
+(desative e volta ao padrao).
+COMO: entre na BIOS > procure "Ai Tweaker"/"OC"/"Overclocking" (ASUS),
+"DOCP" (AMD Ryzen), "XMP" (Intel), "EXPO" (Ryzen com RAM DDR5) > ative o
+Perfil 1. Salve e reinicie.
+
+------------------------------------------------------------------------
+2) Resizable BAR (ReBAR) + Above 4G Decoding
+------------------------------------------------------------------------
+O QUE E: um recurso oficial do PCI-Express que deixa o processador
+enxergar a memoria da placa de video inteira de uma vez, em vez de
+pedacinhos pequenos por vez (era assim desde os anos 90).
+O QUE FAZ: em jogos que aproveitam isso (a maioria dos lancados nos
+ultimos anos), da mais FPS sem custar nada -- e so uma forma mais
+eficiente de conversar com a GPU. Precisa de placa de video RTX
+30/40/50-series ou AMD RX 6000+ e driver atualizado pra fazer efeito.
+RISCO: baixo, mas exige ligar "Above 4G Decoding" PRIMEIRO (ele e um
+requisito tecnico do ReBAR) -- sem isso, a opcao de Resizable BAR nem
+aparece ou fica cinza.
+COMO: BIOS > aba Advanced (ou PCI Subsystem Settings) > ative "Above 4G
+Decoding" > salve e reinicie > entre de novo na BIOS > agora ative
+"Resizable BAR Support" (ou "Smart Access Memory" no nome da AMD).
+
+------------------------------------------------------------------------
+3) Secure Boot
+------------------------------------------------------------------------
+O QUE E: um recurso de seguranca do UEFI que so deixa o Windows
+inicializar com softwares de inicializacao (bootloader) assinados
+digitalmente, bloqueando malware que tenta rodar antes do proprio
+Windows carregar.
+O QUE FAZ: hoje em dia, varios anticheats de jogos online (Valorant,
+Fortnite, entre outros) EXIGEM Secure Boot ligado pra deixar voce jogar.
+DIAGNOSTICO NESTA MAQUINA: Nao da pra verificar -- ou a maquina esta em modo BIOS Legado/CSM (Secure Boot so existe em modo UEFI), ou falta permissao.
+RECOMENDACAO: mantenha LIGADO. Nao desligue isso pra "ganhar
+desempenho" -- nao ganha nada, e ainda pode te impedir de jogar certos
+jogos com anticheat.
+COMO (se estiver desligado e voce quiser ativar): BIOS > aba Boot ou
+Security > "Secure Boot" > Enabled. Pode pedir que o modo CSM esteja
+desligado primeiro (veja item 5).
+
+------------------------------------------------------------------------
+4) TPM (Trusted Platform Module)
+------------------------------------------------------------------------
+O QUE E: um chip (fisico ou emulado pela CPU, chamado fTPM na AMD ou
+PTT na Intel) que guarda chaves de seguranca de forma protegida.
+O QUE FAZ: e exigencia oficial do Windows 11 pra instalar/atualizar, e
+alguns anticheats tambem checam. Nao afeta desempenho de jogo.
+DIAGNOSTICO NESTA MAQUINA: Nao encontrado nesta maquina.
+COMO (se aparecer como ausente/nao pronto): BIOS > aba Advanced/Security
+> procure "TPM", "fTPM" ou "PTT" > Enabled.
+
+------------------------------------------------------------------------
+5) CSM (Compatibility Support Module) / Modo UEFI puro
+------------------------------------------------------------------------
+O QUE E: um modo de compatibilidade que faz a BIOS moderna (UEFI) se
+comportar como uma BIOS antiga, pra rodar sistemas/discos mais velhos.
+O QUE FAZ: desligar o CSM (deixando so UEFI puro) e necessario pra usar
+Secure Boot e Resizable BAR, e o boot fica um pouco mais rapido.
+RISCO: se o seu Windows foi instalado ha muito tempo em modo Legacy/MBR,
+desligar o CSM pode fazer o disco nao aparecer como opcao de boot.
+Antes de mexer, confira se seu disco ja e GPT: abra "Gerenciamento de
+Disco" no Windows, clique com botao direito no disco principal >
+Propriedades > aba Volumes > "Estilo de particionamento". Se disser GPT,
+seguro desligar o CSM. Se disser MBR, NAO desligue sem pesquisar a
+conversao antes (foge do escopo deste guia).
+COMO: BIOS > aba Boot > "CSM" ou "Launch CSM" > Disabled.
+
+------------------------------------------------------------------------
+6) Fast Boot (da BIOS, nao o do Windows)
+------------------------------------------------------------------------
+O QUE E: pula algumas checagens de hardware (teclado, alguns dispositivos
+USB) durante o boot pra a tela de logo aparecer mais rapido.
+O QUE FAZ: PC liga mais rapido. Nao afeta desempenho depois que o jogo
+esta aberto.
+RISCO: as vezes fica mais dificil entrar na propria BIOS depois (o boot
+e tao rapido que nao da tempo de apertar a tecla) -- se isso acontecer,
+a maioria das placas deixa segurar Shift ou usar a opcao "Restart" do
+Windows segurando Shift pra cair direto no menu de boot avancado.
+COMO: BIOS > aba Boot > "Fast Boot" > Enabled (ou deixe Disabled se
+preferir garantir acesso facil a BIOS).
+
+------------------------------------------------------------------------
+7) C-States / Power Saving da CPU (AVANCADO -- opcional)
+------------------------------------------------------------------------
+O QUE E: estados de economia de energia que deixam nucleos ociosos da
+CPU "cochilarem" (reduzindo clock/voltagem) quando nao estao sendo
+usados.
+O QUE FAZ: alguns jogadores competitivos desligam isso achando que
+reduz microstutter, porque a CPU nao perde tempo "acordando" um nucleo.
+NA PRATICA, em CPUs modernas (Ryzen 5000+ / Intel 10a geracao+) o ganho
+e quase sempre imperceptivel, e desligar aumenta calor e consumo de
+energia o tempo todo, mesmo sem jogar.
+RECOMENDACAO: deixe LIGADO (padrao de fabrica). So mexa nisso se voce
+ja testou tudo mais deste guia, tem um sistema de resfriamento robusto,
+e quer testar por curiosidade -- nao e algo que faca diferenca real pra
+maioria das pessoas.
+COMO (se ainda assim quiser testar): BIOS > aba Advanced > CPU
+Configuration > "C-States" ou "Package C-State" > Disabled. Reverta se
+notar temperatura mais alta sem ganho perceptivel.
+
+------------------------------------------------------------------------
+8) PBO (AMD) / MCE (Intel) -- Limites de energia da CPU (AVANCADO)
+------------------------------------------------------------------------
+O QUE E: PBO (Precision Boost Overdrive, AMD) e MCE (Multi-Core
+Enhancement, Intel/placas ASUS) sao recursos que deixam a propria
+placa-mae aumentar os limites de energia/temperatura da CPU alem do
+que o fabricante do processador define de fabrica, pra ela conseguir
+manter clocks mais altos por mais tempo.
+O QUE FAZ: mais FPS em jogos que dependem de poucos nucleos muito
+rapidos -- MAS aumenta bastante o consumo de energia e a temperatura, e
+so vale a pena se o seu cooler for bom (water cooler ou air cooler top).
+RISCO: com cooler fraco, pode causar throttling (a CPU se auto-limita
+por calor, ficando ATE MAIS LENTA que no padrao) ou desligamentos por
+superaquecimento. Nao danifica a CPU permanentemente (ela se protege
+sozinha), mas o ganho so compensa com resfriamento adequado.
+RECOMENDACAO: so ative se voce ja monitorou sua temperatura em jogo
+(ex: com o HWiNFO) e ela fica confortavelmente abaixo de 80-85C no uso
+normal. Caso contrario, deixe no padrao de fabrica.
+COMO: BIOS > aba Advanced > CPU Configuration > "PBO" (AMD) ou
+"MCE"/"ASUS MultiCore Enhancement" (Intel/ASUS) > Enabled/Auto.
+
+------------------------------------------------------------------------
+9) Curva de ventoinha (Fan Control)
+------------------------------------------------------------------------
+O QUE E: a tabela que decide a velocidade dos coolers/ventoinhas de
+acordo com a temperatura.
+O QUE FAZ: uma curva mais agressiva mantem a CPU/GPU mais fria (ajuda a
+manter clocks altos por mais tempo em jogos longos), ao custo de mais
+barulho. Praticamente toda BIOS moderna tem essa tela com um grafico
+visual pra arrastar os pontos.
+RISCO: nenhum -- e so ruido, reversivel a qualquer momento.
+COMO: BIOS > aba Monitor/Hardware Monitor > "Fan Control" ou "Q-Fan" >
+ajuste a curva pra ficar um pouco mais agressiva que o padrao se o
+barulho nao incomodar.
+
+------------------------------------------------------------------------
+10) Se algo der errado
+------------------------------------------------------------------------
+Toda BIOS tem uma tecla (geralmente F5, F9, ou opcao no menu "Save &
+Exit" / "Exit") chamada "Load Optimized Defaults" ou "Load Setup
+Defaults" -- ela restaura TODAS as opcoes de BIOS pro padrao de fabrica
+de uma vez, sem apagar nada do seu Windows ou dos seus arquivos. Use
+sem medo se alguma mudanca daqui deixar o PC instavel.

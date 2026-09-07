@@ -1,0 +1,18 @@
+GUIA DE CONFIGURACAO -- NVIDIA GeForce RTX 3050
+================================================
+
+Painel de Controle NVIDIA (botao direito na Area de Trabalho > Painel de
+Controle NVIDIA) > Gerenciar Configuracoes 3D > aba Configuracoes do
+Programa:
+
+  Modo de gerenciamento de energia .......... Preferencia por desempenho maximo
+  Modo de latencia baixa ..................... Ultra
+  Filtragem de textura - Qualidade ........... Alto desempenho
+  Filtragem de textura - otimizacao trilinear  Ligado
+  Sincronizacao vertical (VSync) ............. Desligado
+  Antialiasing - FXAA ........................ Desligado
+  Buffering triplo ............................ Desligado
+  Taxa Maxima de Quadros ...................... Desligado (deixe o limitador do jogo cuidar disso)
+  Tamanho do cache do criador de sombras ..... Ilimitado
+
+NVIDIA App > aba do jogo > Otimizar: puxe pra "Desempenho".

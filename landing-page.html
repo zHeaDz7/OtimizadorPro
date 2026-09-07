@@ -1,0 +1,372 @@
+<title>Otimizador Pro</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #f1f2f2;
+    --surface: #ffffff;
+    --surface-2: #e7e9e9;
+    --border: #d4d7d7;
+    --ink: #14181a;
+    --muted: #5b6467;
+    --accent: #b9791f;
+    --accent-ink: #7a4f12;
+    --accent-soft: #f3e2c4;
+    --good: #2f7a4f;
+    --good-soft: #dcefe2;
+    --bad: #a2432e;
+    --bad-soft: #f4dfd8;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+    --shadow: 0 1px 2px rgba(20,24,26,0.06), 0 8px 24px -12px rgba(20,24,26,0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181a;
+      --surface: #1b2023;
+      --surface-2: #21272a;
+      --border: #313a3e;
+      --ink: #edefef;
+      --muted: #93a0a4;
+      --accent: #e7a94c;
+      --accent-ink: #ffd699;
+      --accent-soft: #3a2f1a;
+      --good: #7fd19f;
+      --good-soft: #1c3226;
+      --bad: #e08b73;
+      --bad-soft: #3a231d;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181a;
+    --surface: #1b2023;
+    --surface-2: #21272a;
+    --border: #313a3e;
+    --ink: #edefef;
+    --muted: #93a0a4;
+    --accent: #e7a94c;
+    --accent-ink: #ffd699;
+    --accent-soft: #3a2f1a;
+    --good: #7fd19f;
+    --good-soft: #1c3226;
+    --bad: #e08b73;
+    --bad-soft: #3a231d;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 32px -16px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  ::selection { background: var(--accent-soft); }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---- top bar ---- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 0; border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: var(--mono); font-weight: 700; font-size: 15px;
+    letter-spacing: 0.02em; display: flex; align-items: center; gap: 10px;
+  }
+  .logo .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    animation: blink 2.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .topnav { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
+  @media (max-width: 640px) { .topnav { display: none; } }
+
+  /* ---- hero ---- */
+  .hero { padding: 64px 0 40px; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; padding-top: 44px; } }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--accent-ink);
+    background: var(--accent-soft); border: 1px solid var(--accent);
+    padding: 5px 10px; border-radius: 4px; margin-bottom: 20px;
+  }
+  h1 {
+    font-family: var(--mono); font-weight: 700; font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.12; letter-spacing: -0.01em; margin: 0 0 18px; text-wrap: balance;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .lede { font-size: 17px; color: var(--muted); max-width: 46ch; margin: 0 0 28px; }
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    font-family: var(--sans); font-weight: 600; font-size: 14.5px;
+    padding: 12px 20px; border-radius: 6px; border: 1px solid transparent;
+    cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: #1b1200; }
+  .btn-ghost { background: transparent; color: var(--ink); border-color: var(--border); }
+  .hero-note { margin-top: 16px; font-size: 12.5px; color: var(--muted); font-family: var(--mono); }
+
+  /* ---- terminal mock ---- */
+  .term {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px; padding: 11px 14px;
+    border-bottom: 1px solid var(--border); background: var(--surface-2);
+  }
+  .term-bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+  .term-title { margin-left: 6px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .term-body { padding: 18px 16px; font-family: var(--mono); font-size: 13px; }
+  .term-body .ln { white-space: pre-wrap; margin: 0 0 3px; }
+  .term-prompt { color: var(--accent); }
+  .term-ok { color: var(--good); }
+  .term-warn { color: var(--bad); }
+  .term-dim { color: var(--muted); }
+
+  /* ---- section shell ---- */
+  section { padding: 56px 0; border-top: 1px solid var(--border); }
+  .kicker {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 10px;
+  }
+  h2 { font-family: var(--mono); font-size: clamp(22px, 3vw, 28px); margin: 0 0 12px; text-wrap: balance; }
+  .section-lede { color: var(--muted); max-width: 62ch; margin: 0 0 32px; font-size: 15.5px; }
+
+  /* ---- stat tiles (proof) ---- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  @media (max-width: 760px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { background: var(--surface); padding: 22px 18px; }
+  .stat .n { font-family: var(--mono); font-weight: 700; font-size: 26px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+
+  /* ---- categories ---- */
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .cats { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .cats { grid-template-columns: 1fr; } }
+  .cat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 20px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .cat h3 { margin: 0; font-size: 15.5px; font-weight: 600; }
+  .cat .count { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .cat ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .cat li {
+    display: flex; align-items: baseline; gap: 9px; font-size: 13.5px; color: var(--muted);
+  }
+  .code-chip {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--accent-ink);
+    background: var(--accent-soft); border-radius: 4px; padding: 1.5px 6px; flex-shrink: 0;
+  }
+
+  /* ---- toggle demo row ---- */
+  .toggle-demo {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .trow {
+    display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center;
+    padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .trow:last-child { border-bottom: none; }
+  .trow .name { font-weight: 500; }
+  .trow .desc { font-size: 12.5px; color: var(--muted); display: block; margin-top: 2px; }
+  .pill { font-family: var(--mono); font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .pill-on { background: var(--good-soft); color: var(--good); }
+  .pill-off { background: var(--surface-2); color: var(--muted); }
+  .action-hint { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+  /* ---- not-does ---- */
+  .nope { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .nope-row { background: var(--surface); padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start; }
+  .nope-mark {
+    font-family: var(--mono); font-weight: 700; color: var(--bad); background: var(--bad-soft);
+    width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 13px;
+  }
+  .nope-row p { margin: 0; font-size: 14px; }
+  .nope-row .t { font-weight: 600; display: block; margin-bottom: 2px; }
+  .nope-row .d { color: var(--muted); }
+
+  /* ---- footer ---- */
+  footer { padding: 40px 0 60px; }
+  .footer-grid { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; }
+  .footer-note { font-size: 13px; color: var(--muted); max-width: 40ch; }
+  .footer-mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo"><span class="dot"></span> OTIMIZADOR&nbsp;PRO</div>
+    <div class="topnav">
+      <span>Como funciona</span><span>Categorias</span><span>O que não faz</span>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">$ tudo em PowerShell puro — sem .exe compilado</div>
+      <h1>Otimização de PC que você pode <em>ler</em> antes de rodar.</h1>
+      <p class="lede">62 scripts para Windows, rede, RAM, CPU e GPU — cada um deles um arquivo de texto que você abre no bloco de notas antes de confiar. Funciona em qualquer jogo, qualquer PC. Nada escondido, tudo reversível.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#categorias">Ver o que ele otimiza</a>
+        <a class="btn btn-ghost" href="#transparencia">Como a transparência funciona</a>
+      </div>
+      <div class="hero-note">Otimizar.bat → pede administrador → menu em texto. Sem instalador, sem conta, sem telemetria própria.</div>
+    </div>
+
+    <div class="term">
+      <div class="term-bar">
+        <span></span><span></span><span></span>
+        <span class="term-title">Otimizar.bat</span>
+      </div>
+      <div class="term-body">
+        <p class="ln term-prompt">PS&gt; A  &nbsp;<span class="term-dim"># Liberar memória RAM agora</span></p>
+        <p class="ln term-ok">on: memoria pedida de volta em 123 processo(s) (99 sem permissao, normal).</p>
+        <p class="ln term-ok">RAM livre foi de 5170 MB pra 7442 MB (+2272 MB).</p>
+        <p class="ln">&nbsp;</p>
+        <p class="ln term-prompt">PS&gt; P  &nbsp;<span class="term-dim"># Taxa de atualização do monitor</span></p>
+        <p class="ln term-warn">AVISO: seu monitor/placa suporta até 75 Hz mas está em 60 Hz.</p>
+        <p class="ln">&nbsp;</p>
+        <p class="ln term-prompt">PS&gt; DG &gt; 1  <span class="term-dim"># RAM: Dual ou Single Channel</span></p>
+        <p class="ln term-ok">2 pentes do mesmo tamanho -- provavelmente já em Dual Channel.</p>
+      </div>
+    </div>
+  </div>
+
+  <section id="prova">
+    <p class="kicker">Resultados reais desta sessão de teste</p>
+    <h2>Não é promessa — é o que o script imprimiu.</h2>
+    <p class="section-lede">Cada número abaixo saiu de uma execução de verdade durante o desenvolvimento, não de uma tabela de marketing.</p>
+    <div class="stats">
+      <div class="stat"><div class="n">+2.272 MB</div><div class="l">RAM devolvida na hora pelo item A</div></div>
+      <div class="stat"><div class="n">60→75 Hz</div><div class="l">Monitor sub-configurado, achado pelo item P</div></div>
+      <div class="stat"><div class="n">62</div><div class="l">Scripts .ps1, todos legíveis</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">Programas de terceiro instalados</div></div>
+    </div>
+  </section>
+
+  <section id="categorias">
+    <p class="kicker">Sete frentes, um menu só</p>
+    <h2>Do registro do Windows à placa de rede.</h2>
+    <p class="section-lede">Cada categoria do menu principal, com exemplos reais de itens e seus códigos exatos.</p>
+    <div class="cats">
+      <div class="cat">
+        <h3>Sistema</h3>
+        <span class="count">10 itens</span>
+        <ul>
+          <li><span class="code-chip">5</span> Plano de energia Desempenho Máximo</li>
+          <li><span class="code-chip">6</span> Game Mode, Game Bar, efeitos visuais</li>
+          <li><span class="code-chip">9</span> HAGS — agendamento de GPU por hardware</li>
+        </ul>
+      </div>
+      <div class="cat">
+        <h3>Rede / Ping</h3>
+        <span class="count">5 itens</span>
+        <ul>
+          <li><span class="code-chip">PG</span> Diagnóstico de ping: roteador vs. internet</li>
+          <li><span class="code-chip">IM</span> Interrupt Moderation da placa de rede</li>
+          <li><span class="code-chip">8</span> Nagle, NetworkThrottling, LSO</li>
+        </ul>
+      </div>
+      <div class="cat">
+        <h3>Registro Avançado</h3>
+        <span class="count">8 itens</span>
+        <ul>
+          <li><span class="code-chip">S</span> Mouse 1:1 físico, sem aceleração</li>
+          <li><span class="code-chip">H</span> Core Parking, MSI Mode, TDR Delay</li>
+          <li><span class="code-chip">Z</span> Prioridade de CPU por executável</li>
+        </ul>
+      </div>
+      <div class="cat">
+        <h3>Limpeza</h3>
+        <span class="count">2 itens</span>
+        <ul>
+          <li><span class="code-chip">F</span> Temp, Prefetch, cache de shader, Lixeira</li>
+          <li><span class="code-chip">G</span> Desfragmentar HD (nunca SSD)</li>
+        </ul>
+      </div>
+      <div class="cat">
+        <h3>Diagnósticos</h3>
+        <span class="count">14 itens</span>
+        <ul>
+          <li><span class="code-chip">DG</span> RAM channel, overlay, driver de GPU</li>
+          <li><span class="code-chip">DG</span> VPN ativa, Wi-Fi, GPU híbrida</li>
+          <li><span class="code-chip">DG</span> Core Isolation (VBS), throttling de CPU</li>
+        </ul>
+      </div>
+      <div class="cat">
+        <h3>Ferramentas</h3>
+        <span class="count">7 itens</span>
+        <ul>
+          <li><span class="code-chip">FR</span> Score de saúde 0–100</li>
+          <li><span class="code-chip">FR</span> Relatório antes/depois</li>
+          <li><span class="code-chip">FR</span> Desfazer tudo, de uma vez</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="transparencia">
+    <p class="kicker">O mesmo padrão em todo item que muda algo</p>
+    <h2>Mostra o status, pergunta, só então aplica.</h2>
+    <p class="section-lede">Nenhuma opção do Registro Avançado aplica nada sem antes te mostrar o estado atual — e você sempre pode apertar Enter pra cancelar.</p>
+    <div class="toggle-demo">
+      <div class="trow">
+        <div><span class="name">Mouse 1:1 físico</span><span class="desc">status atual: DESLIGADO</span></div>
+        <span class="pill pill-off">DESLIGADO</span>
+        <span class="action-hint">Aplicar (A) · Reverter (R) · Enter cancela</span>
+      </div>
+      <div class="trow">
+        <div><span class="name">Interrupt Moderation</span><span class="desc">status atual: LIGADO</span></div>
+        <span class="pill pill-on">LIGADO</span>
+        <span class="action-hint">Aplicar (A) · Reverter (R) · Enter cancela</span>
+      </div>
+      <div class="trow">
+        <div><span class="name">Core Parking</span><span class="desc">travado pelo driver nesta CPU — avisado, não forçado</span></div>
+        <span class="pill pill-off">N/D</span>
+        <span class="action-hint">sem ação possível aqui</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="nao-faz">
+    <p class="kicker">Tão importante quanto o que ele faz</p>
+    <h2>O que o Otimizador Pro nunca vai fazer.</h2>
+    <div class="nope">
+      <div class="nope-row">
+        <span class="nope-mark">✕</span>
+        <p><span class="t">Não troca o Windows por uma ISO de terceiro</span><span class="d">ao contrário de "Windows Gamer" tipo GhostSpectre — aquilo é sistema remontado, sem suporte, e pode ser bloqueado por anticheat.</span></p>
+      </div>
+      <div class="nope-row">
+        <span class="nope-mark">✕</span>
+        <p><span class="t">Não promete vantagem dentro do jogo</span><span class="d">nada de "menos recuo" ou "mira perfeita" — isso aqui é hardware e sistema, não cheat.</span></p>
+      </div>
+      <div class="nope-row">
+        <span class="nope-mark">✕</span>
+        <p><span class="t">Não desliga Defender nem Windows Update</span><span class="d">exclusões pontuais de pasta de jogo, sim — desligar proteção inteira, nunca.</span></p>
+      </div>
+      <div class="nope-row">
+        <span class="nope-mark">✕</span>
+        <p><span class="t">Não fecha nem desativa nada sozinho</span><span class="d">o auditor de processos e o de inicialização sempre perguntam item por item.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <div class="logo" style="margin-bottom:10px"><span class="dot"></span> OTIMIZADOR&nbsp;PRO</div>
+        <p class="footer-note">Um conjunto de scripts PowerShell, não um programa compilado. Se você não confia sem ver o código — é exatamente assim que deveria ser.</p>
+      </div>
+      <div class="footer-mono">Otimizar.bat → scripts\_menu.ps1<br>Logs\auditoria.csv · Logs\sessao_*.txt</div>
+    </div>
+  </footer>
+</div>
