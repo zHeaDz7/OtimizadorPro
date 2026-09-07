@@ -1,5 +1,5 @@
 # Otimizador Pro -- instalador rapido
-# Uso:  irm https://raw.githubusercontent.com/USUARIO/OtimizadorPro/main/instalar.ps1 | iex
+# Uso:  irm https://raw.githubusercontent.com/zHeaDz7/OtimizadorPro/main/instalar.ps1 | iex
 #
 # Baixa o projeto do GitHub pra uma pasta local e abre a interface grafica.
 # Nao instala nada escondido, nao roda nada compilado -- so copia os
