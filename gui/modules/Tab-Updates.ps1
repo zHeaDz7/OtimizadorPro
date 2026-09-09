@@ -1,9 +1,10 @@
-﻿# Aba "Atualizações" -- 3 perfis de Windows Update, igual o WinUtil:
+﻿# Aba "Atualizações" -- 4 perfis de Windows Update, igual o WinUtil:
 # Recomendado (adia atualização de recurso, mantém segurança em dia),
-# Padrão do Windows (desfaz tudo isso), e Desativado (pausa por
-# completo -- avisamos claramente o risco de segurança). Cada perfil
-# mostra o que muda tecnicamente, pra pessoa saber exatamente o que
-# vai acontecer antes de clicar.
+# Somente Segurança (adia recurso pra sempre, mas correção de segurança
+# instala na hora), Padrão do Windows (desfaz tudo isso), e Desativado
+# (pausa por completo -- avisamos claramente o risco de segurança).
+# Cada perfil mostra o que muda tecnicamente, pra pessoa saber
+# exatamente o que vai acontecer antes de clicar.
 function Build-UpdatesTab {
   param($window, $setStatus)
 
@@ -26,7 +27,7 @@ function Build-UpdatesTab {
   $raiz.Children.Add($sub) | Out-Null
 
   $grade = New-Object System.Windows.Controls.Primitives.UniformGrid
-  $grade.Columns = 3
+  $grade.Columns = 2
 
   $wuPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
   $auPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
@@ -36,7 +37,7 @@ function Build-UpdatesTab {
     $borda.BorderBrush = $window.FindResource("BrushBorder")
     $borda.BorderThickness = 1
     $borda.CornerRadius = 8
-    $borda.Margin = "0,0,16,0"
+    $borda.Margin = "0,0,16,16"
     $borda.Padding = 18
     $painel = New-Object System.Windows.Controls.StackPanel
     $borda.Child = $painel
@@ -105,6 +106,20 @@ function Build-UpdatesTab {
     }
   }.GetNewClosure()
 
+  $acaoSeguranca = {
+    try {
+      if (-not (Test-Path $auPath)) { New-Item -Path $auPath -Force | Out-Null }
+      if (-not (Test-Path $wuPath)) { New-Item -Path $wuPath -Force | Out-Null }
+      Set-ItemProperty -Path $wuPath -Name "DeferFeatureUpdatesPeriodInDays" -Value 365 -Type DWord -Force
+      Set-ItemProperty -Path $wuPath -Name "DeferQualityUpdatesPeriodInDays" -Value 0 -Type DWord -Force
+      Set-ItemProperty -Path $wuPath -Name "ExcludeWUDriversInQualityUpdate" -Value 1 -Type DWord -Force
+      Set-ItemProperty -Path $auPath -Name "NoAutoRebootWithLoggedOnUsers" -Value 1 -Type DWord -Force
+      $setStatus.Invoke("on: perfil Somente Segurança aplicado. Reinicie pra valer.") | Out-Null
+    } catch {
+      $setStatus.Invoke("AVISO: precisa ser Administrador pra essa parte.") | Out-Null
+    }
+  }.GetNewClosure()
+
   $acaoPadrao = {
     try {
       Remove-Item -Path $wuPath -Recurse -Force -ErrorAction SilentlyContinue
@@ -142,6 +157,21 @@ function Build-UpdatesTab {
     "O serviço do Windows Update continua ligado o tempo todo."
   )
 
+  $cartao4 = New-CartaoPerfil $window "Somente Segurança" "Pra quem não abre mão de estar 100% protegido. Atualização de recurso é adiada pra sempre, mas correção de segurança instala SEM atraso nenhum -- mais restrito que o Recomendado." @(
+    "Adia atualização de recurso por 365 dias"
+    "Atualização de qualidade (segurança) instala assim que sai, sem esperar nenhum dia"
+    "Exclui driver da atualização automática (você escolhe quando trocar driver)"
+    "Evita reiniciar sozinho enquanto você está logado/jogando"
+  ) "BtnGhost" $acaoSeguranca "BtnUpdatePerfilSeguranca" @(
+    "Cria/edita HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate:"
+    "  DeferFeatureUpdatesPeriodInDays = 365"
+    "  DeferQualityUpdatesPeriodInDays = 0"
+    "  ExcludeWUDriversInQualityUpdate = 1"
+    "Cria/edita HKLM\...\WindowsUpdate\AU:"
+    "  NoAutoRebootWithLoggedOnUsers = 1"
+    "O serviço do Windows Update continua ligado o tempo todo."
+  )
+
   $cartao2 = New-CartaoPerfil $window "Padrão do Windows" "Remove as políticas do OtimizadorPro, devolve controle total ao Windows." @(
     "Restaura comportamento padrão de fábrica"
     "Use pra desfazer o perfil Recomendado ou Desativado a qualquer momento"
@@ -163,12 +193,13 @@ function Build-UpdatesTab {
   )
 
   $grade.Children.Add($cartao1) | Out-Null
+  $grade.Children.Add($cartao4) | Out-Null
   $grade.Children.Add($cartao2) | Out-Null
   $grade.Children.Add($cartao3) | Out-Null
   $raiz.Children.Add($grade) | Out-Null
 
   $avisoFinal = New-Object System.Windows.Controls.TextBlock
-  $avisoFinal.Text = "Nenhum perfil desliga o Windows Defender. Antivírus continua funcionando em qualquer um dos três."
+  $avisoFinal.Text = "Nenhum perfil desliga o Windows Defender. Antivírus continua funcionando em qualquer um dos quatro."
   $avisoFinal.Foreground = $window.FindResource("BrushMuted")
   $avisoFinal.FontSize = 11.5
   $avisoFinal.TextWrapping = "Wrap"
