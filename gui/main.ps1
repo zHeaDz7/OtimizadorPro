@@ -227,6 +227,55 @@ function Wait-EventosUI([int]$ms) {
   [System.Windows.Threading.Dispatcher]::PushFrame($frame)
 }
 
+# Roda trabalho pesado (winget, DISM, SFC, scripts que chamam programa
+# externo) numa runspace separada, pra janela NUNCA travar/"nao
+# responder" enquanto o usuario espera. $trabalho NAO pode tocar em
+# nenhum objeto WPF (roda em outra thread) -- so recebe dados simples
+# (caminho, texto, lista) via $argumentos e devolve dados simples. Quem
+# atualiza a tela e o $aoTerminar, que roda de volta na thread da UI.
+function Invoke-EmSegundoPlano {
+  param(
+    [array]$botoesDesabilitar,
+    [scriptblock]$trabalho,
+    [array]$argumentos = @(),
+    [scriptblock]$aoTerminar
+  )
+
+  foreach ($b in $botoesDesabilitar) { if ($b) { $b.IsEnabled = $false } }
+
+  $runspace = [runspacefactory]::CreateRunspace()
+  $runspace.ApartmentState = "MTA"
+  $runspace.Open()
+
+  $ps = [powershell]::Create()
+  $ps.Runspace = $runspace
+  $ps.AddScript($trabalho) | Out-Null
+  foreach ($a in $argumentos) { $ps.AddArgument($a) | Out-Null }
+
+  $asyncResult = $ps.BeginInvoke()
+
+  $timer = New-Object System.Windows.Threading.DispatcherTimer
+  $timer.Interval = [TimeSpan]::FromMilliseconds(250)
+  $timer.Add_Tick({
+    if ($asyncResult.IsCompleted) {
+      $timer.Stop()
+      $resultado = $null
+      $erro = $null
+      try { $resultado = $ps.EndInvoke($asyncResult) } catch { $erro = $_ }
+      $ps.Dispose()
+      $runspace.Close()
+      foreach ($b in $botoesDesabilitar) { if ($b) { $b.IsEnabled = $true } }
+      try {
+        $aoTerminar.Invoke($resultado, $erro)
+      } catch {
+        $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
+        "ERRO no aoTerminar (Invoke-EmSegundoPlano): $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
+      }
+    }
+  }.GetNewClosure())
+  $timer.Start()
+}
+
 function Find-CheckBoxByContent($pai, [string]$texto) {
   $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($pai)
   for ($i = 0; $i -lt $n; $i++) {
@@ -250,19 +299,19 @@ function Find-VisualChildByName($pai, [string]$nome) {
 }
 
 . (Join-Path $dir "modules\Tab-Ajustes.ps1")
-$window.FindName("TabAjustes").Content = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status}
+$window.FindName("TabAjustes").Content = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Instalar.ps1")
-$window.FindName("TabInstalar").Content = Build-InstalarTab -window $window -setStatus ${function:Set-Status}
+$window.FindName("TabInstalar").Content = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Config.ps1")
-$window.FindName("TabConfig").Content = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status}
+$window.FindName("TabConfig").Content = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Updates.ps1")
 $window.FindName("TabUpdates").Content = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
 
 . (Join-Path $dir "modules\Tab-Win11.ps1")
-$window.FindName("TabWin11").Content = Build-Win11Tab -window $window -setStatus ${function:Set-Status}
+$window.FindName("TabWin11").Content = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 $idxTeste = $args.IndexOf("-TesteAba")
 if ($idxTeste -ge 0 -and $args.Count -gt ($idxTeste + 1)) {

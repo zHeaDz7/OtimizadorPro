@@ -4,7 +4,7 @@
 # usuario ja baixou (presumivelmente da Microsoft) pra gravar num pendrive.
 
 function Build-Win11Tab {
-  param($window, $setStatus)
+  param($window, $setStatus, $emSegundoPlano)
 
   $raiz = New-Object System.Windows.Controls.ScrollViewer
   $painel = New-Object System.Windows.Controls.StackPanel
@@ -213,6 +213,21 @@ function Build-Win11Tab {
   $linhaConfirma.Children.Add($btnGravar) | Out-Null
   $p2.Children.Add($linhaConfirma) | Out-Null
 
+  # Callback criado com GetNewClosure() UMA vez, aqui no escopo direto
+  # de Build-Win11Tab -- nao aninhado dentro do Add_Click (evita o bug
+  # de GetNewClosure() aninhado perder variavel do escopo avo depois de
+  # rodar varios minutos em segundo plano, confirmado com teste real).
+  $callbackGravar = {
+    param($resultado, $erro)
+    if ($erro) {
+      $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
+      "ERRO no BtnWin11Gravar: $erro" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao gravar -- precisa ser Administrador. Veja o log.") | Out-Null
+      return
+    }
+    $setStatus.Invoke($resultado) | Out-Null
+  }.GetNewClosure()
+
   $btnGravar.Add_Click({
     try {
       $isoPath = $txtIso.Text
@@ -235,27 +250,35 @@ function Build-Win11Tab {
         return
       }
 
-      $setStatus.Invoke("Formatando pendrive $($infoDisco.DriveLetter): (isso apaga tudo)...") | Out-Null
-      $particao = Get-Partition -DiskNumber $infoDisco.DiskNumber | Where-Object { $_.DriveLetter -eq $infoDisco.DriveLetter }
-      Format-Volume -Partition $particao -FileSystem NTFS -NewFileSystemLabel "WIN11" -Confirm:$false -Force | Out-Null
+      $setStatus.Invoke("Formatando e gravando o pendrive $($infoDisco.DriveLetter): em segundo plano -- a janela continua funcionando normal. Isso pode demorar alguns minutos...") | Out-Null
 
-      $setStatus.Invoke("Montando a ISO...") | Out-Null
-      $img = Mount-DiskImage -ImagePath $isoPath -PassThru
-      $volIso = ($img | Get-Volume).DriveLetter
+      $trabalho = {
+        param($diskNumber, $driveLetter, $isoPath)
+        try {
+          $particao = Get-Partition -DiskNumber $diskNumber | Where-Object { $_.DriveLetter -eq $driveLetter }
+          Format-Volume -Partition $particao -FileSystem NTFS -NewFileSystemLabel "WIN11" -Confirm:$false -Force | Out-Null
 
-      $setStatus.Invoke("Copiando arquivos da ISO pro pendrive (pode demorar alguns minutos)...") | Out-Null
-      $origem = "$($volIso):\"
-      $destino = "$($infoDisco.DriveLetter):\"
-      robocopy $origem $destino /E /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
-      $codigoRobocopy = $LASTEXITCODE
+          $img = Mount-DiskImage -ImagePath $isoPath -PassThru
+          $volIso = ($img | Get-Volume).DriveLetter
 
-      Dismount-DiskImage -ImagePath $isoPath | Out-Null
+          $origem = "$($volIso):\"
+          $destino = "$($driveLetter):\"
+          robocopy $origem $destino /E /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
+          $codigoRobocopy = $LASTEXITCODE
 
-      if ($codigoRobocopy -lt 8) {
-        $setStatus.Invoke("Pronto: pendrive $($infoDisco.DriveLetter): gravado com a mídia oficial do Windows 11.") | Out-Null
-      } else {
-        $setStatus.Invoke("Cópia terminou com avisos (codigo robocopy $codigoRobocopy) -- confira o pendrive antes de usar.") | Out-Null
+          Dismount-DiskImage -ImagePath $isoPath | Out-Null
+
+          if ($codigoRobocopy -lt 8) {
+            return "Pronto: pendrive $($driveLetter): gravado com a mídia oficial do Windows 11."
+          } else {
+            return "Cópia terminou com avisos (código robocopy $codigoRobocopy) -- confira o pendrive antes de usar."
+          }
+        } catch {
+          return "AVISO: precisa ser Administrador pra gravar o pendrive ($_)"
+        }
       }
+
+      $emSegundoPlano.Invoke(@($btnGravar), $trabalho, @($infoDisco.DiskNumber, $infoDisco.DriveLetter, $isoPath), $callbackGravar)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnWin11Gravar: $_" | Out-File $debugLog -Append

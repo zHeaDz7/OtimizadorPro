@@ -177,7 +177,7 @@ function Get-StatusItemAjuste($scriptsDir, $item) {
 }
 
 function Build-AjustesTab {
-  param($window, $scriptsDir, $setStatus)
+  param($window, $scriptsDir, $setStatus, $emSegundoPlano)
 
   $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
 
@@ -266,18 +266,69 @@ function Build-AjustesTab {
   }
   $raiz.Children.Add($scroll) | Out-Null
 
+  # Callbacks criados com GetNewClosure() UMA vez, aqui no escopo direto
+  # de Build-AjustesTab -- nao aninhados dentro do Add_Click. GetNewClosure()
+  # aninhado dentro de outra closure perde a referencia de variaveis do
+  # escopo avo (bug real confirmado com teste minimo em segundo plano
+  # de longa duracao); criando aqui a captura fica confiavel.
+  $callbackStatus = {
+    param($resultado, $erro)
+    if ($erro) {
+      "ERRO no BtnStatus: $erro" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao ler status -- veja o log.") | Out-Null
+      return
+    }
+    foreach ($nome in $resultado.Keys) {
+      if ($null -ne $resultado[$nome] -and $checkboxesPorItem.ContainsKey($nome)) {
+        $checkboxesPorItem[$nome].IsChecked = [bool]$resultado[$nome]
+      }
+    }
+    $setStatus.Invoke("Status atualizado.") | Out-Null
+  }.GetNewClosure()
+
+  $callbackAplicar = {
+    param($resultado, $erro)
+    if ($erro) {
+      "ERRO no BtnAplicar: $erro" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
+      return
+    }
+    $setStatus.Invoke("Pronto: $resultado item(ns) aplicado(s).") | Out-Null
+  }.GetNewClosure()
+
+  $callbackReverter = {
+    param($resultado, $erro)
+    if ($erro) {
+      "ERRO no BtnReverter: $erro" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao reverter -- veja o log.") | Out-Null
+      return
+    }
+    $setStatus.Invoke("Pronto: $resultado item(ns) revertido(s).") | Out-Null
+  }.GetNewClosure()
+
   $btnStatus.Add_Click({
     try {
-      $setStatus.Invoke("Lendo status atual de cada item...") | Out-Null
-      foreach ($nome in @($checkboxesPorItem.Keys)) {
-        $cb = $checkboxesPorItem[$nome]
-        $item = $cb.Tag
-        if ($item.Conv -eq "toggle" -or $item.Conv -eq "onoff") {
-          $ligado = Get-StatusItemAjuste $scriptsDir $item
-          if ($null -ne $ligado) { $cb.IsChecked = [bool]$ligado }
+      $itensComStatus = @($checkboxesPorItem.Values | ForEach-Object { $_.Tag } | Where-Object { $_.Conv -eq "toggle" -or $_.Conv -eq "onoff" })
+      $setStatus.Invoke("Lendo status atual de cada item em segundo plano...") | Out-Null
+
+      $trabalho = {
+        param($itens, $dirScripts)
+        $resultados = @{}
+        foreach ($item in $itens) {
+          $caminho = Join-Path $dirScripts $item.Script
+          try {
+            $ligado = $null
+            switch ($item.Conv) {
+              "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
+              "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
+            }
+            $resultados[$item.Nome] = $ligado
+          } catch { $resultados[$item.Nome] = $null }
         }
+        return $resultados
       }
-      $setStatus.Invoke("Status atualizado.") | Out-Null
+
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itensComStatus, $scriptsDir), $callbackStatus)
     } catch {
       "ERRO no BtnStatus: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao ler status -- veja o log.") | Out-Null
@@ -288,20 +339,26 @@ function Build-AjustesTab {
     try {
       $marcados = @($checkboxesPorItem.Values | Where-Object { $_.IsChecked -eq $true })
       if ($marcados.Count -eq 0) { $setStatus.Invoke("Nenhum item marcado.") | Out-Null; return }
-      $setStatus.Invoke("Aplicando $($marcados.Count) item(ns)...") | Out-Null
-      foreach ($cb in $marcados) {
-        $item = $cb.Tag
-        $caminho = Join-Path $scriptsDir $item.Script
-        try {
-          switch ($item.Conv) {
-            "toggle"       { & $caminho -Action Aplicar 2>&1 | Out-Null }
-            "onoff"        { & $caminho -Action On 2>&1 | Out-Null }
-            "onoffdireto"  { & $caminho -Action Off 2>&1 | Out-Null }
-            default        { & $caminho 2>&1 | Out-Null }
-          }
-        } catch {}
+      $itens = @($marcados | ForEach-Object { $_.Tag })
+      $setStatus.Invoke("Aplicando $($itens.Count) item(ns) em segundo plano -- a janela continua funcionando normal...") | Out-Null
+
+      $trabalho = {
+        param($itens, $dirScripts)
+        foreach ($item in $itens) {
+          $caminho = Join-Path $dirScripts $item.Script
+          try {
+            switch ($item.Conv) {
+              "toggle"       { & $caminho -Action Aplicar 2>&1 | Out-Null }
+              "onoff"        { & $caminho -Action On 2>&1 | Out-Null }
+              "onoffdireto"  { & $caminho -Action Off 2>&1 | Out-Null }
+              default        { & $caminho 2>&1 | Out-Null }
+            }
+          } catch {}
+        }
+        return $itens.Count
       }
-      $setStatus.Invoke("Pronto: $($marcados.Count) item(ns) aplicado(s).") | Out-Null
+
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackAplicar)
     } catch {
       "ERRO no BtnAplicar: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
@@ -312,17 +369,22 @@ function Build-AjustesTab {
     try {
       $marcados = @($checkboxesPorItem.Values | Where-Object { $_.IsChecked -eq $true })
       if ($marcados.Count -eq 0) { $setStatus.Invoke("Nenhum item marcado.") | Out-Null; return }
-      $comReverter = @($marcados | Where-Object { $_.Tag.Conv -eq "toggle" -or $_.Tag.Conv -eq "onoff" })
-      $setStatus.Invoke("Revertendo $($comReverter.Count) item(ns)...") | Out-Null
-      foreach ($cb in $comReverter) {
-        $item = $cb.Tag
-        $caminho = Join-Path $scriptsDir $item.Script
-        try {
-          if ($item.Conv -eq "toggle") { & $caminho -Action Reverter 2>&1 | Out-Null }
-          else { & $caminho -Action Off 2>&1 | Out-Null }
-        } catch {}
+      $itens = @($marcados | Where-Object { $_.Tag.Conv -eq "toggle" -or $_.Tag.Conv -eq "onoff" } | ForEach-Object { $_.Tag })
+      $setStatus.Invoke("Revertendo $($itens.Count) item(ns) em segundo plano -- a janela continua funcionando normal...") | Out-Null
+
+      $trabalho = {
+        param($itens, $dirScripts)
+        foreach ($item in $itens) {
+          $caminho = Join-Path $dirScripts $item.Script
+          try {
+            if ($item.Conv -eq "toggle") { & $caminho -Action Reverter 2>&1 | Out-Null }
+            else { & $caminho -Action Off 2>&1 | Out-Null }
+          } catch {}
+        }
+        return $itens.Count
       }
-      $setStatus.Invoke("Pronto: $($comReverter.Count) item(ns) revertido(s).") | Out-Null
+
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackReverter)
     } catch {
       "ERRO no BtnReverter: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao reverter -- veja o log.") | Out-Null

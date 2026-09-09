@@ -22,7 +22,7 @@ function Get-UsbSuspendValor {
 
 try {
   if ($Action -eq "Status") {
-    if (Get-UsbSuspendValor) { Write-Output "LIGADO (suspensao ativa)" } else { Write-Output "DESLIGADO" }
+    if (Get-UsbSuspendValor) { Write-Output "DESLIGADO (suspensao ativa, padrao do Windows)" } else { Write-Output "LIGADO" }
     return
   }
 
