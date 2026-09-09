@@ -227,7 +227,10 @@ function Build-InstalarTab {
       $trabalho = {
         param($ids)
         $instalados = @()
+        $i = 0
         foreach ($id in $ids) {
+          $i++
+          $progresso.Texto = "Verificando ($i/$($ids.Count)): $id..."
           try {
             $r = (winget list --id $id --exact --accept-source-agreements 2>&1) -join "`n"
             if ($r -match [regex]::Escape($id)) { $instalados += $id }
@@ -235,7 +238,7 @@ function Build-InstalarTab {
         }
         return $instalados
       }
-      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$todosIds), $callbackVerInstalados)
+      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$todosIds), $callbackVerInstalados, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnVerInstalados: $_" | Out-File $debugLog -Append
@@ -252,14 +255,17 @@ function Build-InstalarTab {
       $trabalho = {
         param($apps)
         $sucessos = 0; $falhas = 0
+        $i = 0
         foreach ($app in $apps) {
+          $i++
+          $progresso.Texto = "Instalando ($i/$($apps.Count)): $($app.Nome)..."
           winget install --id $app.Id --exact --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
           if ($LASTEXITCODE -eq 0) { $sucessos++ } else { $falhas++ }
         }
         return @{ Sucessos = $sucessos; Falhas = $falhas }
       }
 
-      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$listaApps), $callbackInstalar)
+      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$listaApps), $callbackInstalar, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnInstalar: $_" | Out-File $debugLog -Append
@@ -277,14 +283,17 @@ function Build-InstalarTab {
       $trabalho = {
         param($apps)
         $sucessos = 0; $falhas = 0
+        $i = 0
         foreach ($app in $apps) {
+          $i++
+          $progresso.Texto = "Desinstalando ($i/$($apps.Count)): $($app.Nome)..."
           winget uninstall --id $app.Id --exact --silent 2>&1 | Out-Null
           if ($LASTEXITCODE -eq 0) { $sucessos++ } else { $falhas++ }
         }
         return @{ Sucessos = $sucessos; Falhas = $falhas }
       }
 
-      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$listaApps), $callbackDesinstalar)
+      $emSegundoPlano.Invoke(@($btnInstalar, $btnDesinstalar, $btnVerInstalados), $trabalho, @(,$listaApps), $callbackDesinstalar, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnDesinstalar: $_" | Out-File $debugLog -Append

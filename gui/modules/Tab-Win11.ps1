@@ -255,17 +255,21 @@ function Build-Win11Tab {
       $trabalho = {
         param($diskNumber, $driveLetter, $isoPath)
         try {
+          $progresso.Texto = "Formatando o pendrive $($driveLetter): (isso apaga tudo)..."
           $particao = Get-Partition -DiskNumber $diskNumber | Where-Object { $_.DriveLetter -eq $driveLetter }
           Format-Volume -Partition $particao -FileSystem NTFS -NewFileSystemLabel "WIN11" -Confirm:$false -Force | Out-Null
 
+          $progresso.Texto = "Montando a ISO..."
           $img = Mount-DiskImage -ImagePath $isoPath -PassThru
           $volIso = ($img | Get-Volume).DriveLetter
 
+          $progresso.Texto = "Copiando arquivos da ISO pro pendrive (pode demorar alguns minutos)..."
           $origem = "$($volIso):\"
           $destino = "$($driveLetter):\"
           robocopy $origem $destino /E /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
           $codigoRobocopy = $LASTEXITCODE
 
+          $progresso.Texto = "Desmontando a ISO..."
           Dismount-DiskImage -ImagePath $isoPath | Out-Null
 
           if ($codigoRobocopy -lt 8) {
@@ -278,7 +282,7 @@ function Build-Win11Tab {
         }
       }
 
-      $emSegundoPlano.Invoke(@($btnGravar), $trabalho, @($infoDisco.DiskNumber, $infoDisco.DriveLetter, $isoPath), $callbackGravar)
+      $emSegundoPlano.Invoke(@($btnGravar), $trabalho, @($infoDisco.DiskNumber, $infoDisco.DriveLetter, $isoPath), $callbackGravar, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnWin11Gravar: $_" | Out-File $debugLog -Append

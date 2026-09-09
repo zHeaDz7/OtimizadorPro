@@ -314,7 +314,10 @@ function Build-AjustesTab {
       $trabalho = {
         param($itens, $dirScripts)
         $resultados = @{}
+        $i = 0
         foreach ($item in $itens) {
+          $i++
+          $progresso.Texto = "Lendo status ($i/$($itens.Count)): $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try {
             $ligado = $null
@@ -328,7 +331,7 @@ function Build-AjustesTab {
         return $resultados
       }
 
-      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itensComStatus, $scriptsDir), $callbackStatus)
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itensComStatus, $scriptsDir), $callbackStatus, $setStatus)
     } catch {
       "ERRO no BtnStatus: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao ler status -- veja o log.") | Out-Null
@@ -344,7 +347,10 @@ function Build-AjustesTab {
 
       $trabalho = {
         param($itens, $dirScripts)
+        $i = 0
         foreach ($item in $itens) {
+          $i++
+          $progresso.Texto = "Aplicando ($i/$($itens.Count)): $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try {
             switch ($item.Conv) {
@@ -358,7 +364,7 @@ function Build-AjustesTab {
         return $itens.Count
       }
 
-      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackAplicar)
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackAplicar, $setStatus)
     } catch {
       "ERRO no BtnAplicar: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
@@ -374,7 +380,10 @@ function Build-AjustesTab {
 
       $trabalho = {
         param($itens, $dirScripts)
+        $i = 0
         foreach ($item in $itens) {
+          $i++
+          $progresso.Texto = "Revertendo ($i/$($itens.Count)): $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try {
             if ($item.Conv -eq "toggle") { & $caminho -Action Reverter 2>&1 | Out-Null }
@@ -384,7 +393,7 @@ function Build-AjustesTab {
         return $itens.Count
       }
 
-      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackReverter)
+      $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackReverter, $setStatus)
     } catch {
       "ERRO no BtnReverter: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       $setStatus.Invoke("Erro ao reverter -- veja o log.") | Out-Null

@@ -111,6 +111,7 @@ function Build-ConfigTab {
         $ok = 0; $falha = 0
         foreach ($f in $features) {
           foreach ($nomeFeat in ($f.Feature -split ",")) {
+            $progresso.Texto = "Instalando recurso: $($f.Nome)..."
             try {
               Enable-WindowsOptionalFeature -Online -FeatureName $nomeFeat -All -NoRestart -ErrorAction Stop | Out-Null
               $ok++
@@ -120,7 +121,7 @@ function Build-ConfigTab {
         return @{ Ok = $ok; Falha = $falha }
       }
 
-      $emSegundoPlano.Invoke(@($btnInstalarFeatures), $trabalho, @(,$listaFeatures), $callbackFeatures)
+      $emSegundoPlano.Invoke(@($btnInstalarFeatures), $trabalho, @(,$listaFeatures), $callbackFeatures, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnInstalarFeatures: $_" | Out-File $debugLog -Append
@@ -191,6 +192,7 @@ function Build-ConfigTab {
   $botoesReparo = @()
   foreach ($rep in $Global:CatalogoReparos) {
     $par = New-CartaoAcao $window $rep.Nome $rep.Desc 260
+    $par.Botao.Name = "BtnReparo_$($rep.Acao)"
     $botoesReparo += $par.Botao
     $gradeReparos.Children.Add($par.Cartao) | Out-Null
   }
@@ -241,37 +243,47 @@ function Build-ConfigTab {
             param($acao, $dirScripts)
             switch ($acao) {
               "rede" {
+                $progresso.Texto = "Reparando rede (Winsock/TCP-IP)..."
                 $r = (& (Join-Path $dirScripts "_net_repair.ps1") 2>&1) -join " | "
                 return $r
               }
               "sfc" {
-                sfc /scannow 2>&1 | Out-Null
-                return "Verificação de arquivos do sistema concluída."
+                $progresso.Texto = "Rodando SFC -- isso demora alguns minutos, sem janela extra aparecendo..."
+                $r = $comandoEscondido.Invoke("sfc.exe", @("/scannow"))
+                if ($r.CodigoSaida -eq 0) { return "Verificação de arquivos do sistema concluída." }
+                return "SFC terminou com código $($r.CodigoSaida) -- se não tiver rodado como Administrador, abra o Otimizador Pro como Administrador e tente de novo."
               }
               "dism" {
-                DISM /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-Null
-                if ($LASTEXITCODE -eq 0) { return "Imagem do Windows reparada com sucesso." }
-                return "DISM terminou com aviso (código $LASTEXITCODE) -- confira se precisa de internet."
+                $progresso.Texto = "Rodando DISM -- isso pode demorar varios minutos, sem janela extra aparecendo..."
+                $r = $comandoEscondido.Invoke("DISM.exe", @("/Online", "/Cleanup-Image", "/RestoreHealth"))
+                if ($r.CodigoSaida -eq 0) { return "Imagem do Windows reparada com sucesso." }
+                return "DISM terminou com código $($r.CodigoSaida) -- confira se precisa de internet ou de rodar como Administrador."
               }
               "chkdsk" {
+                $progresso.Texto = "Verificando o disco por erro..."
                 try {
                   $r = Repair-Volume -DriveLetter "C" -Scan -ErrorAction Stop
                   return "Verificação de disco concluída: $($r.HealthStatus)."
                 } catch { return "AVISO: não consegui verificar o disco ($_)" }
               }
               "wu" {
+                $progresso.Texto = "Parando servicos do Windows Update..."
                 try {
                   Stop-Service -Name wuauserv, bits -Force -ErrorAction Stop
+                  $progresso.Texto = "Limpando pasta de atualizacoes baixadas..."
                   Remove-Item -Path "$env:WINDIR\SoftwareDistribution" -Recurse -Force -ErrorAction SilentlyContinue
+                  $progresso.Texto = "Reiniciando servicos do Windows Update..."
                   Start-Service -Name wuauserv, bits -ErrorAction SilentlyContinue
                   return "Windows Update resetado."
                 } catch { return "AVISO: precisa ser Administrador pra essa parte." }
               }
               "dns" {
+                $progresso.Texto = "Limpando cache de DNS..."
                 ipconfig /flushdns 2>&1 | Out-Null
                 return "Cache de DNS limpo."
               }
               "spooler" {
+                $progresso.Texto = "Reiniciando o spooler de impressao..."
                 try {
                   Stop-Service -Name spooler -Force -ErrorAction Stop
                   Remove-Item -Path "$env:WINDIR\System32\spool\PRINTERS\*" -Force -ErrorAction SilentlyContinue
@@ -280,10 +292,12 @@ function Build-ConfigTab {
                 } catch { return "AVISO: precisa ser Administrador pra essa parte." }
               }
               "firewall" {
+                $progresso.Texto = "Restaurando o firewall pro padrao..."
                 $r = (netsh advfirewall reset 2>&1) -join " "
                 return "Firewall restaurado pro padrão do Windows."
               }
               "icones" {
+                $progresso.Texto = "Reconstruindo cache de icones (a tela vai piscar)..."
                 try {
                   Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
                   Start-Sleep -Milliseconds 500
@@ -295,22 +309,28 @@ function Build-ConfigTab {
               }
               "apps" {
                 $ok = 0
-                Get-AppxPackage -AllUsers | ForEach-Object {
+                $pacotes = @(Get-AppxPackage -AllUsers)
+                $i = 0
+                foreach ($pacote in $pacotes) {
+                  $i++
+                  $progresso.Texto = "Registrando apps da Store ($i/$($pacotes.Count))..."
                   try {
-                    Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml" -ErrorAction Stop
+                    Add-AppxPackage -DisableDevelopmentMode -Register "$($pacote.InstallLocation)\AppXManifest.xml" -ErrorAction Stop
                     $ok++
                   } catch {}
                 }
                 return "Apps da Microsoft Store registrados de novo ($ok processado(s))."
               }
               "componentcleanup" {
-                DISM /Online /Cleanup-Image /StartComponentCleanup 2>&1 | Out-Null
-                return "Atualizações antigas limpas."
+                $progresso.Texto = "Rodando DISM (limpeza de atualizacoes antigas) -- isso pode demorar varios minutos, sem janela extra aparecendo..."
+                $r = $comandoEscondido.Invoke("DISM.exe", @("/Online", "/Cleanup-Image", "/StartComponentCleanup"))
+                if ($r.CodigoSaida -eq 0) { return "Atualizações antigas limpas." }
+                return "DISM terminou com código $($r.CodigoSaida) -- confira se precisa de rodar como Administrador."
               }
             }
           }
 
-          $emSegundoPlano.Invoke($botoesReparo, $trabalho, @($acao, $scriptsDir), $callbackReparo)
+          $emSegundoPlano.Invoke($botoesReparo, $trabalho, @($acao, $scriptsDir), $callbackReparo, $setStatus)
         } catch {
           $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
           "ERRO no botao de reparo: $_" | Out-File $debugLog -Append

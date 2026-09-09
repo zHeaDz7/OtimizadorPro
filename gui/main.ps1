@@ -233,19 +233,30 @@ function Wait-EventosUI([int]$ms) {
 # nenhum objeto WPF (roda em outra thread) -- so recebe dados simples
 # (caminho, texto, lista) via $argumentos e devolve dados simples. Quem
 # atualiza a tela e o $aoTerminar, que roda de volta na thread da UI.
+#
+# Progresso em tempo real: dentro de $trabalho, a variavel $progresso
+# (hashtable "sincronizada" -- thread-safe) ja esta disponivel sem
+# precisar declarar em param(). Escrever $progresso.Texto = "mensagem"
+# a qualquer momento faz a barra de status atualizar na hora (o timer
+# abaixo confere a cada 200ms, mesmo antes do trabalho terminar).
 function Invoke-EmSegundoPlano {
   param(
     [array]$botoesDesabilitar,
     [scriptblock]$trabalho,
     [array]$argumentos = @(),
-    [scriptblock]$aoTerminar
+    [scriptblock]$aoTerminar,
+    [scriptblock]$setStatus = $null
   )
 
   foreach ($b in $botoesDesabilitar) { if ($b) { $b.IsEnabled = $false } }
 
+  $progresso = [hashtable]::Synchronized(@{ Texto = $null })
+
   $runspace = [runspacefactory]::CreateRunspace()
   $runspace.ApartmentState = "MTA"
   $runspace.Open()
+  $runspace.SessionStateProxy.SetVariable("progresso", $progresso)
+  $runspace.SessionStateProxy.SetVariable("comandoEscondido", ${function:Invoke-ComandoEscondido})
 
   $ps = [powershell]::Create()
   $ps.Runspace = $runspace
@@ -254,9 +265,14 @@ function Invoke-EmSegundoPlano {
 
   $asyncResult = $ps.BeginInvoke()
 
+  $ultimoTexto = $null
   $timer = New-Object System.Windows.Threading.DispatcherTimer
-  $timer.Interval = [TimeSpan]::FromMilliseconds(250)
+  $timer.Interval = [TimeSpan]::FromMilliseconds(200)
   $timer.Add_Tick({
+    if ($setStatus -and $progresso.Texto -and $progresso.Texto -ne $ultimoTexto) {
+      $ultimoTexto = $progresso.Texto
+      $setStatus.Invoke($ultimoTexto) | Out-Null
+    }
     if ($asyncResult.IsCompleted) {
       $timer.Stop()
       $resultado = $null
@@ -274,6 +290,26 @@ function Invoke-EmSegundoPlano {
     }
   }.GetNewClosure())
   $timer.Start()
+}
+
+# Roda um programa externo (DISM, SFC, robocopy...) sem deixar ele
+# "pintar" na janela de console compartilhada por tras da GUI -- usa
+# uma janela propria ESCONDIDA e captura a saida em arquivo, em vez de
+# so redirecionar o pipeline (redirecionar sozinho nao impede o
+# programa de escrever direto na tela quando ele compartilha o console
+# do processo pai, foi exatamente o que aconteceu com o DISM).
+function Invoke-ComandoEscondido {
+  param([string]$exe, [string[]]$argumentos)
+  $arqSaida = [System.IO.Path]::GetTempFileName()
+  $arqErro = [System.IO.Path]::GetTempFileName()
+  try {
+    $p = Start-Process -FilePath $exe -ArgumentList $argumentos -WindowStyle Hidden -Wait -PassThru `
+      -RedirectStandardOutput $arqSaida -RedirectStandardError $arqErro
+    $saida = Get-Content $arqSaida -Raw -ErrorAction SilentlyContinue
+    return @{ CodigoSaida = $p.ExitCode; Saida = $saida }
+  } finally {
+    Remove-Item $arqSaida, $arqErro -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Find-CheckBoxByContent($pai, [string]$texto) {
