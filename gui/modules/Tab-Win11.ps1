@@ -263,11 +263,11 @@ function Build-Win11Tab {
           $img = Mount-DiskImage -ImagePath $isoPath -PassThru
           $volIso = ($img | Get-Volume).DriveLetter
 
-          $progresso.Texto = "Copiando arquivos da ISO pro pendrive (pode demorar alguns minutos)..."
+          $progresso.Texto = "Copiando arquivos da ISO pro pendrive numa janela separada -- olhe a barra de tarefas..."
           $origem = "$($volIso):\"
           $destino = "$($driveLetter):\"
-          robocopy $origem $destino /E /R:1 /W:1 /NFL /NDL /NJH /NJS | Out-Null
-          $codigoRobocopy = $LASTEXITCODE
+          $r = $comandoVisivel.Invoke("Otimizador Pro - Copiando Windows 11 pro pendrive", "robocopy.exe", @("`"$origem`"", "`"$destino`"", "/E", "/R:1", "/W:1"))
+          $codigoRobocopy = $r.CodigoSaida
 
           $progresso.Texto = "Desmontando a ISO..."
           Dismount-DiskImage -ImagePath $isoPath | Out-Null

@@ -256,7 +256,7 @@ function Invoke-EmSegundoPlano {
   $runspace.ApartmentState = "MTA"
   $runspace.Open()
   $runspace.SessionStateProxy.SetVariable("progresso", $progresso)
-  $runspace.SessionStateProxy.SetVariable("comandoEscondido", ${function:Invoke-ComandoEscondido})
+  $runspace.SessionStateProxy.SetVariable("comandoVisivel", ${function:Invoke-ComandoVisivel})
 
   $ps = [powershell]::Create()
   $ps.Runspace = $runspace
@@ -292,24 +292,20 @@ function Invoke-EmSegundoPlano {
   $timer.Start()
 }
 
-# Roda um programa externo (DISM, SFC, robocopy...) sem deixar ele
-# "pintar" na janela de console compartilhada por tras da GUI -- usa
-# uma janela propria ESCONDIDA e captura a saida em arquivo, em vez de
-# so redirecionar o pipeline (redirecionar sozinho nao impede o
-# programa de escrever direto na tela quando ele compartilha o console
-# do processo pai, foi exatamente o que aconteceu com o DISM).
-function Invoke-ComandoEscondido {
-  param([string]$exe, [string[]]$argumentos)
-  $arqSaida = [System.IO.Path]::GetTempFileName()
-  $arqErro = [System.IO.Path]::GetTempFileName()
-  try {
-    $p = Start-Process -FilePath $exe -ArgumentList $argumentos -WindowStyle Hidden -Wait -PassThru `
-      -RedirectStandardOutput $arqSaida -RedirectStandardError $arqErro
-    $saida = Get-Content $arqSaida -Raw -ErrorAction SilentlyContinue
-    return @{ CodigoSaida = $p.ExitCode; Saida = $saida }
-  } finally {
-    Remove-Item $arqSaida, $arqErro -Force -ErrorAction SilentlyContinue
-  }
+# Roda um programa externo (DISM, SFC, robocopy...) numa janela de
+# console PROPRIA, NOVA e VISIVEL, com titulo dizendo o que esta
+# rodando -- pra pessoa ver com os proprios olhos o comando de verdade
+# acontecendo ao vivo (barra de progresso do proprio DISM/SFC etc), em
+# vez de so confiar num texto de status. Antes essa janela nao existia
+# e o programa "pintava" sem querer na janela de PowerShell elevada
+# escondida atras da GUI, que fica em branco -- parecia travado. Agora
+# ganha janela propria, so pra essa tarefa, que fecha sozinha quando
+# termina.
+function Invoke-ComandoVisivel {
+  param([string]$titulo, [string]$exe, [string[]]$argumentos)
+  $linhaComando = "title $titulo && `"$exe`" $($argumentos -join ' ')"
+  $p = Start-Process -FilePath "cmd.exe" -ArgumentList @("/c", $linhaComando) -Wait -PassThru
+  return @{ CodigoSaida = $p.ExitCode }
 }
 
 function Find-CheckBoxByContent($pai, [string]$texto) {

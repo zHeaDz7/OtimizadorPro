@@ -248,14 +248,14 @@ function Build-ConfigTab {
                 return $r
               }
               "sfc" {
-                $progresso.Texto = "Rodando SFC -- isso demora alguns minutos, sem janela extra aparecendo..."
-                $r = $comandoEscondido.Invoke("sfc.exe", @("/scannow"))
+                $progresso.Texto = "Rodando SFC numa janela separada -- olhe a barra de tarefas..."
+                $r = $comandoVisivel.Invoke("Otimizador Pro - Verificando arquivos do sistema (SFC)", "sfc.exe", @("/scannow"))
                 if ($r.CodigoSaida -eq 0) { return "Verificação de arquivos do sistema concluída." }
                 return "SFC terminou com código $($r.CodigoSaida) -- se não tiver rodado como Administrador, abra o Otimizador Pro como Administrador e tente de novo."
               }
               "dism" {
-                $progresso.Texto = "Rodando DISM -- isso pode demorar varios minutos, sem janela extra aparecendo..."
-                $r = $comandoEscondido.Invoke("DISM.exe", @("/Online", "/Cleanup-Image", "/RestoreHealth"))
+                $progresso.Texto = "Rodando DISM numa janela separada -- olhe a barra de tarefas..."
+                $r = $comandoVisivel.Invoke("Otimizador Pro - Reparando imagem do Windows (DISM)", "DISM.exe", @("/Online", "/Cleanup-Image", "/RestoreHealth"))
                 if ($r.CodigoSaida -eq 0) { return "Imagem do Windows reparada com sucesso." }
                 return "DISM terminou com código $($r.CodigoSaida) -- confira se precisa de internet ou de rodar como Administrador."
               }
@@ -322,8 +322,8 @@ function Build-ConfigTab {
                 return "Apps da Microsoft Store registrados de novo ($ok processado(s))."
               }
               "componentcleanup" {
-                $progresso.Texto = "Rodando DISM (limpeza de atualizacoes antigas) -- isso pode demorar varios minutos, sem janela extra aparecendo..."
-                $r = $comandoEscondido.Invoke("DISM.exe", @("/Online", "/Cleanup-Image", "/StartComponentCleanup"))
+                $progresso.Texto = "Rodando DISM numa janela separada -- olhe a barra de tarefas..."
+                $r = $comandoVisivel.Invoke("Otimizador Pro - Limpando atualizações antigas (DISM)", "DISM.exe", @("/Online", "/Cleanup-Image", "/StartComponentCleanup"))
                 if ($r.CodigoSaida -eq 0) { return "Atualizações antigas limpas." }
                 return "DISM terminou com código $($r.CodigoSaida) -- confira se precisa de rodar como Administrador."
               }
