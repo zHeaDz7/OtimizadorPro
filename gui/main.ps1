@@ -6,6 +6,25 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms, System.Drawing
 
+# Esconde a janela de console que o Windows cria sozinho quando um
+# .ps1 roda via powershell.exe -- ela nunca mostra nada (toda a
+# interface e a janela WPF abaixo), so ficava parada e vazia atras da
+# GUI, confundindo com "travado". Isso NAO afeta as janelas novas que
+# operacoes como DISM/SFC/robocopy abrem de proposito (essas sao
+# processos separados, com titulo proprio, pra pessoa acompanhar).
+try {
+  Add-Type -Name JanelaConsole -Namespace OtimizadorPro -MemberDefinition '
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    public static extern System.IntPtr GetConsoleWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    public static extern bool ShowWindow(System.IntPtr hWnd, int nCmdShow);
+  '
+  $handleConsole = [OtimizadorPro.JanelaConsole]::GetConsoleWindow()
+  if ($handleConsole -ne [IntPtr]::Zero) {
+    [OtimizadorPro.JanelaConsole]::ShowWindow($handleConsole, 0) | Out-Null  # 0 = SW_HIDE
+  }
+} catch {}
+
 $dir = $PSScriptRoot
 $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
