@@ -157,24 +157,35 @@ function Build-InicializacaoTab {
         $prefixo = "Desativado_OtimizadorPro_"
         $itens = @()
 
-        $progresso.Texto = "Lendo pasta de Inicializar e Registro..."
-        $ativos = @(Get-CimInstance Win32_StartupCommand -ErrorAction SilentlyContinue)
-        foreach ($a in $ativos) {
-          $tipo = if ($a.Location -match "Startup") { "Pasta" } else { "Registro" }
-          $itens += [PSCustomObject]@{ Nome = $a.Name; Tipo = $tipo; Estado = "Ativo"; ChaveOuId = $a.Location; Comando = $a.Command }
-        }
-
-        $progresso.Texto = "Lendo itens ja desativados antes..."
-        $chavesRun = @(
+        # Le DIRETO do registro e das pastas -- nao usa mais a classe WMI
+        # Win32_StartupCommand: ela e conhecida por dar cache/dado
+        # desatualizado (confirmado rodando duas vezes seguidas e
+        # recebendo resultado diferente) e devolve o caminho da chave
+        # num formato (HKU\SID\...) que nao e um caminho valido pra
+        # Set-ItemProperty/Remove-ItemProperty -- por isso Desativar
+        # podia falhar silenciosamente nesses itens.
+        $progresso.Texto = "Lendo pasta de Inicializar e Registro (direto, sem cache)..."
+        $chavesRunTodas = @(
           "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+          "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
           "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
-          "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run"
+          "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
+          "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run",
+          "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce"
         )
-        foreach ($chave in $chavesRun) {
+        $vistos = @{}
+        foreach ($chave in $chavesRunTodas) {
           if (Test-Path $chave) {
             $valores = Get-Item $chave
             foreach ($nomeValor in $valores.GetValueNames()) {
-              if ($nomeValor -like "$prefixo*") {
+              if ($nomeValor -ne "" -and $nomeValor -notlike "$prefixo*") {
+                $comando = (Get-ItemProperty -Path $chave -Name $nomeValor -ErrorAction SilentlyContinue).$nomeValor
+                $chaveDeDup = "$nomeValor|$comando"
+                if (-not $vistos.ContainsKey($chaveDeDup)) {
+                  $itens += [PSCustomObject]@{ Nome = $nomeValor; Tipo = "Registro"; Estado = "Ativo"; ChaveOuId = $chave; Comando = $comando }
+                  $vistos[$chaveDeDup] = $true
+                }
+              } elseif ($nomeValor -like "$prefixo*") {
                 $comando = (Get-ItemProperty -Path $chave -Name $nomeValor -ErrorAction SilentlyContinue).$nomeValor
                 $itens += [PSCustomObject]@{
                   Nome = $nomeValor.Substring($prefixo.Length)
@@ -187,7 +198,17 @@ function Build-InicializacaoTab {
             }
           }
         }
+
         $pastaOrigem = [Environment]::GetFolderPath("Startup")
+        $pastaComum = [Environment]::GetFolderPath("CommonStartup")
+        foreach ($pasta in @($pastaOrigem, $pastaComum)) {
+          if ($pasta -and (Test-Path $pasta)) {
+            Get-ChildItem $pasta -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "desktop.ini" } | ForEach-Object {
+              $itens += [PSCustomObject]@{ Nome = $_.Name; Tipo = "Pasta"; Estado = "Ativo"; ChaveOuId = $_.DirectoryName; Comando = $null }
+            }
+          }
+        }
+
         $pastaDesativados = Join-Path $pastaOrigem "Desativados_OtimizadorPro"
         if (Test-Path $pastaDesativados) {
           Get-ChildItem $pastaDesativados -File -ErrorAction SilentlyContinue | ForEach-Object {
@@ -259,11 +280,11 @@ function Build-InicializacaoTab {
                 $ok++
               }
               "Pasta" {
-                $pastaOrigem = [Environment]::GetFolderPath("Startup")
-                $pastaDesativados = Join-Path $pastaOrigem "Desativados_OtimizadorPro"
+                $pastaOrigemUsuario = [Environment]::GetFolderPath("Startup")
+                $pastaDesativados = Join-Path $pastaOrigemUsuario "Desativados_OtimizadorPro"
                 New-Item -ItemType Directory -Force -Path $pastaDesativados | Out-Null
-                $arquivo = Get-ChildItem $pastaOrigem -Filter "*$($item.Nome)*" -ErrorAction SilentlyContinue | Select-Object -First 1
-                if ($arquivo) { Move-Item -LiteralPath $arquivo.FullName -Destination $pastaDesativados -Force; $ok++ } else { $falha++ }
+                $caminhoArquivo = Join-Path $item.ChaveOuId $item.Nome
+                if (Test-Path -LiteralPath $caminhoArquivo) { Move-Item -LiteralPath $caminhoArquivo -Destination $pastaDesativados -Force; $ok++ } else { $falha++ }
               }
               "Tarefa Agendada" {
                 $partes = $item.ChaveOuId -split "::", 2
