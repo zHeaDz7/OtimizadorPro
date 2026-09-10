@@ -29,7 +29,7 @@ function Build-InicializacaoTab {
   $raiz.Children.Add($titulo) | Out-Null
 
   $sub = New-Object System.Windows.Controls.TextBlock
-  $sub.Text = "Lista tudo que abre sozinho com o Windows -- inclusive Tarefas Agendadas, que o Gerenciador de Tarefas do Windows NÃO mostra (foi assim que o Ubisoft Connect ficava se abrindo sozinho sem aparecer em lugar nenhum). Nada é apagado -- só desativado, e dá pra reverter aqui mesmo a qualquer momento."
+  $sub.Text = "Lista tudo que abre sozinho com o Windows -- Registro, pasta de Inicializar, Tarefas Agendadas (que o Gerenciador de Tarefas do Windows NÃO mostra -- foi assim que o Ubisoft Connect ficava se abrindo sozinho sem aparecer em lugar nenhum) e apps modernos da Store (Spotify, WhatsApp, Teams etc). Nada é apagado -- só desativado, e dá pra reverter aqui mesmo a qualquer momento. Os apps da Store aparecem só como aviso, sem botão de desativar por aqui -- o estado deles fica guardado de um jeito que só o próprio Gerenciador de Tarefas consegue mudar com segurança, use o botão 'Abrir Gerenciador de Tarefas' acima."
   $sub.Foreground = $window.FindResource("BrushMuted")
   $sub.TextWrapping = "Wrap"
   $sub.Margin = "0,0,0,16"
@@ -60,9 +60,16 @@ function Build-InicializacaoTab {
   $btnReativar.Name = "BtnInicializacaoReativar"
   $btnReativar.Content = "Reativar selecionados"
   $btnReativar.Style = $window.FindResource("BtnGhost")
+  $btnReativar.Margin = "0,0,10,0"
+  $btnAbrirGerenciador = New-Object System.Windows.Controls.Button
+  $btnAbrirGerenciador.Name = "BtnInicializacaoAbrirGerenciador"
+  $btnAbrirGerenciador.Content = "Abrir Gerenciador de Tarefas"
+  $btnAbrirGerenciador.Style = $window.FindResource("BtnGhost")
+  $btnAbrirGerenciador.Add_Click({ try { Start-Process "taskmgr.exe" } catch {} })
   $barraBotoes.Children.Add($btnVerificar) | Out-Null
   $barraBotoes.Children.Add($btnDesativar) | Out-Null
   $barraBotoes.Children.Add($btnReativar) | Out-Null
+  $barraBotoes.Children.Add($btnAbrirGerenciador) | Out-Null
   $raiz.Children.Add($barraBotoes) | Out-Null
 
   $painelLista = New-Object System.Windows.Controls.StackPanel
@@ -115,17 +122,30 @@ function Build-InicializacaoTab {
       $painelCartao = New-Object System.Windows.Controls.StackPanel
       $cartao.Child = $painelCartao
 
-      $cb = New-Object System.Windows.Controls.CheckBox
-      $cb.Content = $item.Nome
-      $cb.Tag = $item
-      $painelCartao.Children.Add($cb) | Out-Null
+      $ehAppModerno = ($item.Tipo -eq "App Moderno (Store)")
+
+      if ($ehAppModerno) {
+        $txtNome = New-Object System.Windows.Controls.TextBlock
+        $txtNome.Text = $item.Nome
+        $txtNome.Foreground = $window.FindResource("BrushInk")
+        $txtNome.FontSize = 13
+        $painelCartao.Children.Add($txtNome) | Out-Null
+      } else {
+        $cb = New-Object System.Windows.Controls.CheckBox
+        $cb.Content = $item.Nome
+        $cb.Tag = $item
+        $painelCartao.Children.Add($cb) | Out-Null
+        $chaveUnica = "$($item.Tipo)|$($item.ChaveOuId)|$($item.Nome)|$($item.Estado)"
+        $checkboxesPorItem[$chaveUnica] = $cb
+      }
 
       $txtInfo = New-Object System.Windows.Controls.TextBlock
-      $corEstado = if ($item.Estado -eq "Ativo") { $window.FindResource("BrushGood") } else { $window.FindResource("BrushMuted") }
+      $corEstado = if ($ehAppModerno) { $window.FindResource("BrushAccent") } elseif ($item.Estado -eq "Ativo") { $window.FindResource("BrushGood") } else { $window.FindResource("BrushMuted") }
       $txtInfo.Text = "$($item.Tipo) -- $($item.Estado)"
       $txtInfo.Foreground = $corEstado
       $txtInfo.FontSize = 11
-      $txtInfo.Margin = "26,3,0,0"
+      $txtInfo.TextWrapping = "Wrap"
+      $txtInfo.Margin = "2,3,0,0"
       $painelCartao.Children.Add($txtInfo) | Out-Null
 
       if ($item.Comando) {
@@ -134,19 +154,18 @@ function Build-InicializacaoTab {
         $txtCmd.Foreground = $window.FindResource("BrushMuted")
         $txtCmd.FontSize = 10.5
         $txtCmd.TextWrapping = "Wrap"
-        $txtCmd.Margin = "26,2,0,0"
+        $txtCmd.Margin = if ($ehAppModerno) { "2,2,0,0" } else { "26,2,0,0" }
         $painelCartao.Children.Add($txtCmd) | Out-Null
       }
 
-      $chaveUnica = "$($item.Tipo)|$($item.ChaveOuId)|$($item.Nome)|$($item.Estado)"
-      $checkboxesPorItem[$chaveUnica] = $cb
       $grade.Children.Add($cartao) | Out-Null
     }
     $painelLista.Children.Add($grade) | Out-Null
 
     $ativos = @($resultado | Where-Object { $_.Estado -eq "Ativo" }).Count
     $desativados = @($resultado | Where-Object { $_.Estado -eq "Desativado" }).Count
-    $setStatus.Invoke("Verificação concluída: $ativos ativo(s), $desativados já desativado(s).") | Out-Null
+    $modernos = @($resultado | Where-Object { $_.Tipo -eq "App Moderno (Store)" }).Count
+    $setStatus.Invoke("Verificação concluída: $ativos ativo(s), $desativados já desativado(s), $modernos app(s) moderno(s) (Store).") | Out-Null
   }.GetNewClosure()
 
   $btnVerificar.Add_Click({
@@ -236,6 +255,42 @@ function Build-InicializacaoTab {
             }
           }
         }
+
+        $progresso.Texto = "Lendo apps modernos (Store) que suportam iniciar com o Windows..."
+        # 4o mecanismo, diferente dos outros tres: apps empacotados
+        # (Store/UWP -- Spotify, WhatsApp, Teams, Xbox etc) declaram
+        # suporte a iniciar sozinho dentro do proprio manifesto
+        # (AppxManifest.xml), nao no registro nem em Tarefa Agendada.
+        # O estado ligado/desligado fica guardado num jeito interno que
+        # so o proprio Gerenciador de Tarefas consegue ler/escrever de
+        # forma confiavel -- por isso esses aparecem so como AVISO, sem
+        # botao de desativar por aqui (pra nao arriscar escrever errado
+        # e quebrar o app). Ainda assim, aparecem, que era o pedido.
+        try {
+          $pacotes = Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { -not $_.IsFramework -and -not $_.IsResourcePackage -and $_.SignatureKind -ne "System" }
+          foreach ($p in $pacotes) {
+            try {
+              $manifestPath = Join-Path $p.InstallLocation "AppxManifest.xml"
+              if (Test-Path $manifestPath) {
+                $conteudo = Get-Content $manifestPath -Raw -ErrorAction SilentlyContinue
+                if ($conteudo -match "windows\.startupTask") {
+                  $nomeExibicao = $p.Name
+                  try {
+                    $nomeAmigavel = (Get-AppxPackageManifest $p -ErrorAction Stop).Package.Applications.Application.VisualElements.DisplayName | Select-Object -First 1
+                    if ($nomeAmigavel -and $nomeAmigavel -notmatch "^ms-resource:") { $nomeExibicao = $nomeAmigavel }
+                  } catch {}
+                  $itens += [PSCustomObject]@{
+                    Nome = $nomeExibicao
+                    Tipo = "App Moderno (Store)"
+                    Estado = "Gerencie no Gerenciador de Tarefas"
+                    ChaveOuId = $p.PackageFamilyName
+                    Comando = $p.PackageFamilyName
+                  }
+                }
+              }
+            } catch {}
+          }
+        } catch {}
 
         return $itens
       }
