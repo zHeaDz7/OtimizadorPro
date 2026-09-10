@@ -2,13 +2,18 @@
 # atalhos pros painéis clássicos de controle, e ferramentas de reparo
 # (reaproveitando scripts já existentes onde dá). Cada item tem uma
 # descrição curta em português simples, pra qualquer pessoa entender o
-# que vai acontecer antes de clicar.
+# que vai acontecer antes de clicar -- e nos Reparos, também como isso
+# pode (ou não) beneficiar na hora de jogar.
 $Global:CatalogoFeatures = @(
   @{ Nome = ".NET Framework 3.5 (necessário pra jogo antigo)"; Feature = "NetFx3" }
   @{ Nome = "Hyper-V (máquina virtual oficial do Windows)"; Feature = "Microsoft-Hyper-V-All" }
   @{ Nome = "Windows Subsystem for Linux (WSL)"; Feature = "Microsoft-Windows-Subsystem-Linux" }
   @{ Nome = "Windows Sandbox (ambiente isolado descartável)"; Feature = "Containers-DisposableClientVM" }
   @{ Nome = "Componentes de mídia legado (WMP, DirectPlay)"; Feature = "WindowsMediaPlayer,DirectPlay" }
+  @{ Nome = "Cliente Telnet (ferramenta de rede/diagnóstico)"; Feature = "TelnetClient" }
+  @{ Nome = "Cliente TFTP (ferramenta de rede/diagnóstico)"; Feature = "TFTP" }
+  @{ Nome = "Servidor Web IIS (hospedar site/servidor local)"; Feature = "IIS-WebServerRole" }
+  @{ Nome = "Impressão em PDF da Microsoft"; Feature = "Printing-PrintToPDFServices-Features" }
 )
 
 $Global:CatalogoPaineis = @(
@@ -24,27 +29,43 @@ $Global:CatalogoPaineis = @(
   @{ Nome = "Serviços do Windows"; Comando = "services.msc"; Desc = "Ligar/desligar processos que rodam em segundo plano." }
   @{ Nome = "Agendador de Tarefas"; Comando = "taskschd.msc"; Desc = "Ver e criar tarefa automática do Windows." }
   @{ Nome = "Gerenciador de Dispositivos"; Comando = "devmgmt.msc"; Desc = "Ver e atualizar driver de hardware." }
+  @{ Nome = "Configurações de Vídeo"; Comando = "desk.cpl"; Desc = "Trocar resolução e taxa de atualização da tela -- importante pra jogo em 120/144/165/240Hz." }
+  @{ Nome = "Data e Hora"; Comando = "timedate.cpl"; Desc = "Ajustar relógio e fuso -- horário errado pode derrubar login de jogo online/anticheat." }
+  @{ Nome = "Opções de Internet"; Comando = "inetcpl.cpl"; Desc = "Configuração de proxy/conexão usada pelo navegador e alguns launchers." }
+  @{ Nome = "Central de Rede e Compartilhamento"; Comando = "control.exe /name Microsoft.NetworkAndSharingCenter"; Desc = "Visão geral e diagnóstico da sua conexão de rede." }
+  @{ Nome = "Monitor de Recursos"; Comando = "resmon.exe"; Desc = "Ve em detalhe o que está usando CPU, disco, rede e memória agora." }
+  @{ Nome = "Informações do Sistema"; Comando = "msinfo32.exe"; Desc = "Resumo completo do hardware e software instalado no PC." }
+  @{ Nome = "Configuração do Sistema (msconfig)"; Comando = "msconfig.exe"; Desc = "Gerenciar item de inicialização e modo de boot." }
+  @{ Nome = "Editor do Registro"; Comando = "regedit.exe"; Desc = "Acesso direto ao registro do Windows -- USO AVANÇADO, mexa só se souber o que está fazendo." }
 )
 
-# Cada reparo: Nome, Desc (explicação simples), Modo ("fundo" = roda em
-# segundo plano via runspace, "abrir" = só abre uma ferramenta do
-# Windows na hora, instantâneo), Acao = chave usada no switch abaixo.
+# Cada reparo: Nome, Desc (explicação simples + o que muda pra jogar),
+# Modo ("fundo" = roda em segundo plano via runspace, "abrir" = só abre
+# uma ferramenta/assistente do Windows na hora), Acao = chave usada no
+# switch abaixo.
 $Global:CatalogoReparos = @(
-  @{ Nome = "Reparar rede (Winsock/TCP-IP)"; Desc = "Conserta internet que não conecta ou fica lenta sem motivo aparente."; Modo = "fundo"; Acao = "rede" }
-  @{ Nome = "Verificar arquivos do sistema (SFC)"; Desc = "Procura e conserta arquivo do Windows corrompido ou alterado."; Modo = "fundo"; Acao = "sfc" }
-  @{ Nome = "Reparar imagem do Windows (DISM)"; Desc = "Conserta o 'molde' que o SFC usa -- rode antes do SFC se ele não resolver sozinho. Precisa de internet."; Modo = "fundo"; Acao = "dism" }
-  @{ Nome = "Verificar disco por erro"; Desc = "Procura setor com defeito ou erro no HD/SSD sem precisar reiniciar."; Modo = "fundo"; Acao = "chkdsk" }
-  @{ Nome = "Resetar Windows Update"; Desc = "Limpa arquivo temporário de atualização quando o Windows Update trava ou dá erro."; Modo = "fundo"; Acao = "wu" }
-  @{ Nome = "Limpar cache de DNS"; Desc = "Esquece endereço de site guardado -- resolve site que não abre mas devia."; Modo = "fundo"; Acao = "dns" }
-  @{ Nome = "Reiniciar Spooler de Impressão"; Desc = "Conserta impressora travada ou fila de impressão que não anda."; Modo = "fundo"; Acao = "spooler" }
-  @{ Nome = "Restaurar Firewall pro padrão"; Desc = "Desfaz qualquer regra de firewall bloqueando internet/programa. Apaga regra personalizada que você tenha criado."; Modo = "fundo"; Acao = "firewall" }
-  @{ Nome = "Reconstruir cache de ícones"; Desc = "Conserta ícone errado ou quebrado na área de trabalho/barra de tarefas."; Modo = "fundo"; Acao = "icones" }
-  @{ Nome = "Registrar apps da Microsoft Store de novo"; Desc = "Conserta app da Store (Loja, Configurações, Calculadora) que não abre ou trava."; Modo = "fundo"; Acao = "apps" }
-  @{ Nome = "Limpar atualizações antigas"; Desc = "Libera espaço em disco apagando versão antiga de atualização já instalada."; Modo = "fundo"; Acao = "componentcleanup" }
-  @{ Nome = "Testar a memória RAM"; Desc = "Abre a ferramenta oficial do Windows pra testar defeito na RAM -- reinicia o PC pra testar."; Modo = "abrir"; Acao = "memtest" }
-  @{ Nome = "Diagnóstico do DirectX"; Desc = "Abre a ferramenta oficial do Windows com informação de vídeo/som pra diagnóstico."; Modo = "abrir"; Acao = "dxdiag" }
-  @{ Nome = "Restauração do Sistema"; Desc = "Abre a ferramenta oficial pra voltar o Windows a um ponto de restauração anterior."; Modo = "abrir"; Acao = "restore" }
-  @{ Nome = "Opções de Recuperação do Windows"; Desc = "Abre Configurações > Recuperação -- reiniciar em modo de reparo ou reinstalar o Windows."; Modo = "abrir"; Acao = "recovery" }
+  @{ Nome = "Reparar rede (Winsock/TCP-IP)"; Desc = "Conserta internet que não conecta ou fica lenta sem motivo aparente. Pra jogo online: menos perda de pacote e desconexão do servidor."; Modo = "fundo"; Acao = "rede" }
+  @{ Nome = "Verificar arquivos do sistema (SFC)"; Desc = "Procura e conserta arquivo do Windows corrompido ou alterado. Evita crash/tela azul causados por arquivo de sistema quebrado."; Modo = "fundo"; Acao = "sfc" }
+  @{ Nome = "Reparar imagem do Windows (DISM)"; Desc = "Conserta o 'molde' que o SFC usa -- rode antes do SFC se ele não resolver sozinho. Precisa de internet. Base mais estável = menos travamento aleatório."; Modo = "fundo"; Acao = "dism" }
+  @{ Nome = "Verificar disco por erro (rápida)"; Desc = "Procura setor com defeito no HD/SSD sem precisar reiniciar. Disco com erro causa engasgo/freeze no carregamento de fase."; Modo = "fundo"; Acao = "chkdsk" }
+  @{ Nome = "Verificação completa de disco (no reinício)"; Desc = "Varredura mais profunda e demorada que a rápida -- roda no próximo reinício do Windows. Use se a verificação rápida não resolver."; Modo = "fundo"; Acao = "chkdskcompleto" }
+  @{ Nome = "Resetar Windows Update"; Desc = "Limpa arquivo temporário de atualização quando o Windows Update trava ou dá erro. Update travado consome CPU/disco enquanto você joga."; Modo = "fundo"; Acao = "wu" }
+  @{ Nome = "Solucionador de problemas do Windows Update"; Desc = "Assistente oficial da Microsoft, mais guiado que o reset simples -- tenta achar a causa exata antes de corrigir."; Modo = "abrir"; Acao = "troubleshoot_wu" }
+  @{ Nome = "Limpar cache de DNS"; Desc = "Esquece endereço de site guardado -- resolve site que não abre mas devia. Ajuda a conectar mais rápido no servidor/login de jogo online."; Modo = "fundo"; Acao = "dns" }
+  @{ Nome = "Solucionador de problemas de rede"; Desc = "Assistente oficial do Windows que testa a conexão passo a passo. Bom pra ping alto/desconexão que os reparos automáticos não resolveram."; Modo = "abrir"; Acao = "troubleshoot_rede" }
+  @{ Nome = "Solucionador de problemas de áudio"; Desc = "Assistente oficial pra som/microfone que não funciona -- útil pro chat de voz durante o jogo."; Modo = "abrir"; Acao = "troubleshoot_audio" }
+  @{ Nome = "Reiniciar Spooler de Impressão"; Desc = "Conserta impressora travada ou fila de impressão que não anda. Não afeta desempenho de jogo -- é só conveniência."; Modo = "fundo"; Acao = "spooler" }
+  @{ Nome = "Restaurar Firewall pro padrão"; Desc = "Desfaz qualquer regra de firewall bloqueando internet/programa. Resolve jogo que não conecta ao servidor por bloqueio de firewall. Apaga regra personalizada que você tenha criado."; Modo = "fundo"; Acao = "firewall" }
+  @{ Nome = "Reconstruir cache de ícones"; Desc = "Conserta ícone errado ou quebrado na área de trabalho/barra de tarefas. Só visual -- não afeta desempenho."; Modo = "fundo"; Acao = "icones" }
+  @{ Nome = "Registrar apps da Microsoft Store de novo"; Desc = "Conserta app da Store (Loja, Xbox App, Game Bar) que não abre ou trava. Útil se o Xbox App/Game Pass parar de funcionar."; Modo = "fundo"; Acao = "apps" }
+  @{ Nome = "Resetar cache da Microsoft Store"; Desc = "Limpa o cache da loja -- resolve Store/Xbox App travado ou que não acha um jogo que você já comprou."; Modo = "fundo"; Acao = "wsreset" }
+  @{ Nome = "Limpar atualizações antigas"; Desc = "Libera espaço em disco apagando versão antiga de atualização já instalada. Mais espaço livre no SSD ajuda a manter a velocidade de escrita."; Modo = "fundo"; Acao = "componentcleanup" }
+  @{ Nome = "Reparar repositório WMI"; Desc = "Conserta um componente interno usado por ferramentas de monitoramento (Gerenciador de Tarefas, apps de temperatura/uso de GPU). Se esses pararem de funcionar, isso costuma resolver."; Modo = "fundo"; Acao = "wmi" }
+  @{ Nome = "Testar a memória RAM"; Desc = "Ferramenta oficial do Windows pra testar defeito na RAM -- reinicia o PC pra testar. RAM com defeito causa travamento/crash aleatório em jogo pesado."; Modo = "abrir"; Acao = "memtest" }
+  @{ Nome = "Diagnóstico do DirectX"; Desc = "Informação oficial de vídeo/som/DirectX -- a base gráfica que praticamente todo jogo usa no Windows."; Modo = "abrir"; Acao = "dxdiag" }
+  @{ Nome = "Relatório de energia (notebook)"; Desc = "Gera um relatório oficial sobre bateria/energia -- mostra se o notebook está limitando o desempenho sem você perceber enquanto joga na tomada."; Modo = "fundo"; Acao = "energia" }
+  @{ Nome = "Restauração do Sistema"; Desc = "Volta o Windows a um ponto de restauração anterior. Desfaz uma mudança que começou a dar problema em jogo."; Modo = "abrir"; Acao = "restore" }
+  @{ Nome = "Opções de Recuperação do Windows"; Desc = "Reiniciar em modo de reparo ou reinstalar o Windows -- último recurso quando nada mais resolveu."; Modo = "abrir"; Acao = "recovery" }
 )
 
 function Build-ConfigTab {
@@ -175,7 +196,13 @@ function Build-ConfigTab {
     $par.Botao.Tag = $p.Comando
     $par.Botao.Add_Click({
       param($s, $e)
-      try { Start-Process $s.Tag } catch {}
+      try {
+        if ($s.Tag -match "^control\.exe ") {
+          Start-Process "control.exe" -ArgumentList ($s.Tag -replace "^control\.exe ", "")
+        } else {
+          Start-Process $s.Tag
+        }
+      } catch {}
     })
     $gradePaineis.Children.Add($par.Cartao) | Out-Null
   }
@@ -191,7 +218,7 @@ function Build-ConfigTab {
   $gradeReparos = New-Object System.Windows.Controls.WrapPanel
   $botoesReparo = @()
   foreach ($rep in $Global:CatalogoReparos) {
-    $par = New-CartaoAcao $window $rep.Nome $rep.Desc 260
+    $par = New-CartaoAcao $window $rep.Nome $rep.Desc 270
     $par.Botao.Name = "BtnReparo_$($rep.Acao)"
     $botoesReparo += $par.Botao
     $gradeReparos.Children.Add($par.Cartao) | Out-Null
@@ -224,10 +251,13 @@ function Build-ConfigTab {
         param($s, $e)
         try {
           switch ($s.Tag) {
-            "memtest"  { Start-Process "mdsched.exe" }
-            "dxdiag"   { Start-Process "dxdiag.exe" }
-            "restore"  { Start-Process "rstrui.exe" }
-            "recovery" { Start-Process "ms-settings:recovery" }
+            "memtest"          { Start-Process "mdsched.exe" }
+            "dxdiag"           { Start-Process "dxdiag.exe" }
+            "restore"          { Start-Process "rstrui.exe" }
+            "recovery"         { Start-Process "ms-settings:recovery" }
+            "troubleshoot_rede"  { Start-Process "msdt.exe" -ArgumentList @("-id", "NetworkDiagnosticsNetworkAdapter") }
+            "troubleshoot_audio" { Start-Process "msdt.exe" -ArgumentList @("-id", "AudioPlaybackDiagnostic") }
+            "troubleshoot_wu"    { Start-Process "msdt.exe" -ArgumentList @("-id", "WindowsUpdateDiagnostic") }
           }
         } catch {}
       })
@@ -265,6 +295,14 @@ function Build-ConfigTab {
                   $r = Repair-Volume -DriveLetter "C" -Scan -ErrorAction Stop
                   return "Verificação de disco concluída: $($r.HealthStatus)."
                 } catch { return "AVISO: não consegui verificar o disco ($_)" }
+              }
+              "chkdskcompleto" {
+                $progresso.Texto = "Agendando verificação completa numa janela separada..."
+                try {
+                  $linha = "title Otimizador Pro - Agendando verificação completa de disco && echo Y| chkdsk C: /f /r"
+                  $p = Start-Process -FilePath "cmd.exe" -ArgumentList @("/c", $linha) -Wait -PassThru
+                  return "Verificação completa agendada pro próximo reinício do Windows."
+                } catch { return "AVISO: precisa ser Administrador pra essa parte." }
               }
               "wu" {
                 $progresso.Texto = "Parando servicos do Windows Update..."
@@ -321,11 +359,37 @@ function Build-ConfigTab {
                 }
                 return "Apps da Microsoft Store registrados de novo ($ok processado(s))."
               }
+              "wsreset" {
+                $progresso.Texto = "Limpando cache da Microsoft Store..."
+                try {
+                  Start-Process "wsreset.exe" -Wait -ErrorAction Stop
+                  return "Cache da Microsoft Store limpo."
+                } catch { return "AVISO: não consegui limpar o cache da Store ($_)" }
+              }
               "componentcleanup" {
                 $progresso.Texto = "Rodando DISM numa janela separada -- olhe a barra de tarefas..."
                 $r = $comandoVisivel.Invoke("Otimizador Pro - Limpando atualizações antigas (DISM)", "DISM.exe", @("/Online", "/Cleanup-Image", "/StartComponentCleanup"))
                 if ($r.CodigoSaida -eq 0) { return "Atualizações antigas limpas." }
                 return "DISM terminou com código $($r.CodigoSaida) -- confira se precisa de rodar como Administrador."
+              }
+              "wmi" {
+                $progresso.Texto = "Reparando repositório WMI..."
+                try {
+                  $r = (winmgmt /salvagerepository 2>&1) -join " "
+                  return "Repositório WMI reparado."
+                } catch { return "AVISO: precisa ser Administrador pra essa parte." }
+              }
+              "energia" {
+                $progresso.Texto = "Gerando relatório de energia (demora cerca de 1 minuto)..."
+                try {
+                  $caminhoRelatorio = Join-Path $env:TEMP "otimizadorpro_relatorio_energia.html"
+                  powercfg /energy /output $caminhoRelatorio /duration 30 2>&1 | Out-Null
+                  if (Test-Path $caminhoRelatorio) {
+                    Start-Process $caminhoRelatorio
+                    return "Relatório de energia gerado e aberto no navegador."
+                  }
+                  return "AVISO: não consegui gerar o relatório -- precisa ser Administrador."
+                } catch { return "AVISO: precisa ser Administrador pra essa parte." }
               }
             }
           }
