@@ -196,7 +196,11 @@ function Build-InicializacaoTab {
         }
 
         $progresso.Texto = "Lendo tarefas agendadas com gatilho de logon..."
-        $tarefas = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -eq "\" })
+        # Cobre a raiz E subpastas de terceiros (ex: \Ubisoft\...) -- so
+        # exclui \Microsoft\Windows\... (namespace reservado do proprio
+        # Windows, onde ficam as ~30 tarefas internas do sistema que
+        # nunca devem aparecer aqui).
+        $tarefas = @(Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -notmatch "^\\Microsoft\\Windows\\" })
         foreach ($t in $tarefas) {
           $gatilhos = $t.Triggers | Where-Object { $_.CimClass.CimClassName -match "LogonTrigger|BootTrigger" }
           if ($gatilhos) {
@@ -206,7 +210,7 @@ function Build-InicializacaoTab {
               Nome = $t.TaskName
               Tipo = "Tarefa Agendada"
               Estado = $estado
-              ChaveOuId = $t.TaskName
+              ChaveOuId = "$($t.TaskPath)::$($t.TaskName)"
               Comando = "$($acao.Execute) $($acao.Arguments)".Trim()
             }
           }
@@ -262,7 +266,8 @@ function Build-InicializacaoTab {
                 if ($arquivo) { Move-Item -LiteralPath $arquivo.FullName -Destination $pastaDesativados -Force; $ok++ } else { $falha++ }
               }
               "Tarefa Agendada" {
-                Disable-ScheduledTask -TaskName $item.ChaveOuId -ErrorAction Stop | Out-Null
+                $partes = $item.ChaveOuId -split "::", 2
+                Disable-ScheduledTask -TaskPath $partes[0] -TaskName $partes[1] -ErrorAction Stop | Out-Null
                 $ok++
               }
             }
@@ -318,7 +323,8 @@ function Build-InicializacaoTab {
                 $ok++
               }
               "Tarefa Agendada" {
-                Enable-ScheduledTask -TaskName $item.ChaveOuId -ErrorAction Stop | Out-Null
+                $partes = $item.ChaveOuId -split "::", 2
+                Enable-ScheduledTask -TaskPath $partes[0] -TaskName $partes[1] -ErrorAction Stop | Out-Null
                 $ok++
               }
             }
