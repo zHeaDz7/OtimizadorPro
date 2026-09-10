@@ -219,6 +219,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
       <TabItem Header="Config" x:Name="TabConfig"/>
       <TabItem Header="Atualizações" x:Name="TabUpdates"/>
       <TabItem Header="Criador Win11" x:Name="TabWin11"/>
+      <TabItem Header="Diagnóstico" x:Name="TabDiagnostico"/>
     </TabControl>
   </DockPanel>
 </Window>
@@ -351,6 +352,9 @@ function Find-VisualChildByName($pai, [string]$nome) {
 
 . (Join-Path $dir "modules\Tab-Ajustes.ps1")
 $window.FindName("TabAjustes").Content = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+
+. (Join-Path $dir "modules\Tab-Diagnostico.ps1")
+$window.FindName("TabDiagnostico").Content = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Instalar.ps1")
 $window.FindName("TabInstalar").Content = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
