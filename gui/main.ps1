@@ -3,6 +3,11 @@
 # separado -- o menu de texto continua funcionando exatamente como
 # antes. Continua tudo em PowerShell puro, sem compilar nada: o .xaml
 # fica embutido como texto legivel dentro deste mesmo arquivo.
+#
+# Layout em sidebar (barra lateral de navegacao + area de conteudo),
+# nao mais em abas horizontais -- cada secao (Instalar, Ajustes, etc)
+# continua sendo construida por Build-XTab exatamente como antes, so
+# muda ONDE esse conteudo aparece na tela.
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms, System.Drawing
 
@@ -35,7 +40,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Otimizador Pro" Height="800" Width="1280" MinHeight="600" MinWidth="1000"
+        Title="Otimizador Pro" Height="820" Width="1360" MinHeight="640" MinWidth="1100"
         WindowStartupLocation="CenterScreen" Background="#14181A" FontFamily="Segoe UI">
   <Window.Resources>
     <SolidColorBrush x:Key="BrushBg" Color="#14181A"/>
@@ -50,19 +55,23 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
     <SolidColorBrush x:Key="BrushGood" Color="#7FD19F"/>
     <SolidColorBrush x:Key="BrushBad" Color="#E08B73"/>
 
-    <Style x:Key="TabBase" TargetType="TabItem">
-      <Setter Property="Padding" Value="18,10"/>
+    <Style x:Key="NavItem" TargetType="RadioButton">
+      <Setter Property="GroupName" Value="Navegacao"/>
       <Setter Property="Foreground" Value="{StaticResource BrushMuted}"/>
+      <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Padding" Value="16,11"/>
+      <Setter Property="Margin" Value="0,2"/>
+      <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
-          <ControlTemplate TargetType="TabItem">
-            <Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,3" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
-              <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" BorderThickness="3,0,0,0" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+              <ContentPresenter VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsSelected" Value="True">
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushSurface2}"/>
                 <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
                 <Setter Property="Foreground" Value="{StaticResource BrushInk}"/>
               </Trigger>
@@ -73,11 +82,6 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
           </ControlTemplate>
         </Setter.Value>
       </Setter>
-    </Style>
-
-    <Style TargetType="TabControl">
-      <Setter Property="Background" Value="Transparent"/>
-      <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <Style x:Key="BtnPrimary" TargetType="Button">
@@ -192,35 +196,50 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
   </Window.Resources>
 
   <DockPanel LastChildFill="True">
-    <!-- Barra superior -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="20,14">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-          <Ellipse Width="9" Height="9" Fill="{StaticResource BrushAccent}" Margin="0,0,10,0"/>
-          <TextBlock Text="OTIMIZADOR PRO" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="15"/>
-        </StackPanel>
-        <TextBox x:Name="TxtBusca" Grid.Column="2" Width="280" Padding="10,7" Text="Buscar (nome, categoria)..." Foreground="{StaticResource BrushMuted}"/>
-      </Grid>
-    </Border>
-
-    <!-- Rodape de status -->
+    <!-- Rodape de status (sempre visivel, largura total) -->
     <Border DockPanel.Dock="Bottom" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="16,8">
       <TextBlock x:Name="TxtStatus" Text="Pronto." Foreground="{StaticResource BrushMuted}" FontSize="12"/>
     </Border>
 
-    <TabControl x:Name="TabsPrincipal" Margin="16" ItemContainerStyle="{StaticResource TabBase}">
-      <TabItem Header="Instalar" x:Name="TabInstalar"/>
-      <TabItem Header="Ajustes" x:Name="TabAjustes"/>
-      <TabItem Header="Config" x:Name="TabConfig"/>
-      <TabItem Header="Atualizações" x:Name="TabUpdates"/>
-      <TabItem Header="Criador Win11" x:Name="TabWin11"/>
-      <TabItem Header="Diagnóstico" x:Name="TabDiagnostico"/>
-    </TabControl>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="232"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Sidebar de navegacao -->
+      <Border Grid.Column="0" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,1,0">
+        <DockPanel LastChildFill="True">
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="20,22,20,26">
+            <Ellipse Width="9" Height="9" Fill="{StaticResource BrushAccent}" Margin="0,0,10,0"/>
+            <TextBlock Text="OTIMIZADOR PRO" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="14"/>
+          </StackPanel>
+          <StackPanel Margin="10,0,10,10">
+            <RadioButton x:Name="NavInstalar" Content="Instalar" Style="{StaticResource NavItem}" IsChecked="True"/>
+            <RadioButton x:Name="NavAjustes" Content="Ajustes" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavConfig" Content="Config" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavUpdates" Content="Atualizações" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavWin11" Content="Criador Win11" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavDiagnostico" Content="Diagnóstico" Style="{StaticResource NavItem}"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- Area de conteudo -->
+      <DockPanel Grid.Column="1" LastChildFill="True">
+        <Border DockPanel.Dock="Top" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="24,16">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="TxtTituloSecao" Text="Instalar" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
+            <TextBox x:Name="TxtBusca" Grid.Column="1" Width="280" Padding="10,7" Text="Buscar (nome, categoria)..." Foreground="{StaticResource BrushMuted}"/>
+          </Grid>
+        </Border>
+        <Border x:Name="AreaConteudo" Padding="24,20,24,20"/>
+      </DockPanel>
+    </Grid>
   </DockPanel>
 </Window>
 "@
@@ -351,27 +370,63 @@ function Find-VisualChildByName($pai, [string]$nome) {
 }
 
 . (Join-Path $dir "modules\Tab-Ajustes.ps1")
-$window.FindName("TabAjustes").Content = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+$conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Diagnostico.ps1")
-$window.FindName("TabDiagnostico").Content = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+$conteudoDiagnostico = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Instalar.ps1")
-$window.FindName("TabInstalar").Content = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+$conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Config.ps1")
-$window.FindName("TabConfig").Content = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+$conteudoConfig = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Updates.ps1")
-$window.FindName("TabUpdates").Content = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
+$conteudoUpdates = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
 
 . (Join-Path $dir "modules\Tab-Win11.ps1")
-$window.FindName("TabWin11").Content = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+$conteudoWin11 = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+
+# --- Navegacao lateral -- troca o conteudo da area principal sem
+# reconstruir nada (cada Build-XTab ja rodou uma unica vez acima; aqui
+# so mostramos/escondemos qual arvore visual aparece). As chaves
+# mantem o nome "TabX" por compatibilidade com os testes automatizados
+# ja escritos (-TesteAba TabAjustes etc).
+$areaConteudo = $window.FindName("AreaConteudo")
+$txtTituloSecao = $window.FindName("TxtTituloSecao")
+
+$secoes = [ordered]@{
+  "TabInstalar"    = @{ Titulo = "Instalar"; Elemento = $conteudoInstalar; NomeNav = "NavInstalar" }
+  "TabAjustes"     = @{ Titulo = "Ajustes"; Elemento = $conteudoAjustes; NomeNav = "NavAjustes" }
+  "TabConfig"      = @{ Titulo = "Config"; Elemento = $conteudoConfig; NomeNav = "NavConfig" }
+  "TabUpdates"     = @{ Titulo = "Atualizações"; Elemento = $conteudoUpdates; NomeNav = "NavUpdates" }
+  "TabWin11"       = @{ Titulo = "Criador Win11"; Elemento = $conteudoWin11; NomeNav = "NavWin11" }
+  "TabDiagnostico" = @{ Titulo = "Diagnóstico"; Elemento = $conteudoDiagnostico; NomeNav = "NavDiagnostico" }
+}
+
+function Mostrar-Secao([string]$chave) {
+  $info = $secoes[$chave]
+  if (-not $info) { return }
+  $areaConteudo.Child = $info.Elemento
+  $txtTituloSecao.Text = $info.Titulo
+  $navBtn = $window.FindName($info.NomeNav)
+  if ($navBtn -and -not $navBtn.IsChecked) { $navBtn.IsChecked = $true }
+}
+
+foreach ($chave in $secoes.Keys) {
+  $navBtn = $window.FindName($secoes[$chave].NomeNav)
+  $navBtn.Tag = $chave
+  $navBtn.Add_Checked({
+    param($s, $e)
+    Mostrar-Secao $s.Tag
+  })
+}
+
+Mostrar-Secao "TabInstalar"
 
 $idxTeste = $args.IndexOf("-TesteAba")
 if ($idxTeste -ge 0 -and $args.Count -gt ($idxTeste + 1)) {
-  $abaAlvo = $window.FindName($args[$idxTeste + 1])
-  if ($abaAlvo) { $window.FindName("TabsPrincipal").SelectedItem = $abaAlvo }
+  Mostrar-Secao $args[$idxTeste + 1]
 }
 
 $idxChk = $args.IndexOf("-TesteMarcarCheckbox")
@@ -408,7 +463,16 @@ if ($args -contains "-TesteScreenshot") {
       try {
         $botao = Find-VisualChildByName $window $nomeBtnTeste
         "[$nomeBtnTeste] botao encontrado: $($null -ne $botao)" | Out-File $debugLog -Append
-        if ($botao) {
+        if ($botao -is [System.Windows.Controls.Primitives.ToggleButton]) {
+          # RadioButton/CheckBox (ex: itens de navegacao da sidebar) --
+          # nao derivam de Button, ButtonAutomationPeer nao serve.
+          $peer = [System.Windows.Automation.Peers.RadioButtonAutomationPeer]::new($botao)
+          $toggleProv = $peer.GetPattern([System.Windows.Automation.Peers.PatternInterface]::SelectionItem)
+          if ($toggleProv) { $toggleProv.Select() } else { $botao.IsChecked = $true }
+          "[$nomeBtnTeste] selecionado com sucesso" | Out-File $debugLog -Append
+          Wait-EventosUI $esperaMs
+          $window.UpdateLayout()
+        } elseif ($botao) {
           $peer = [System.Windows.Automation.Peers.ButtonAutomationPeer]::new($botao)
           $invokeProv = $peer.GetPattern([System.Windows.Automation.Peers.PatternInterface]::Invoke)
           $invokeProv.Invoke()

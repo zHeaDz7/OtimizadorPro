@@ -226,7 +226,7 @@ function Build-AjustesTab {
     $grade = New-Object System.Windows.Controls.WrapPanel
     foreach ($item in ($Global:ListaAjustes | Where-Object { $_.Cat -eq $cat })) {
       $cartao = New-Object System.Windows.Controls.Border
-      $cartao.Width = 578
+      $cartao.Width = 478
       $cartao.Padding = "12,10,12,10"
       $cartao.Margin = "0,0,14,14"
       $cartao.CornerRadius = 6
