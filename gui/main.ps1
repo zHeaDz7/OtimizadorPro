@@ -222,6 +222,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
             <RadioButton x:Name="NavWin11" Content="Criador Win11" Style="{StaticResource NavItem}"/>
             <RadioButton x:Name="NavDiagnostico" Content="Diagnóstico" Style="{StaticResource NavItem}"/>
             <RadioButton x:Name="NavInicializacao" Content="Inicialização" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavGPU" Content="Placa de Vídeo" Style="{StaticResource NavItem}"/>
           </StackPanel>
         </DockPanel>
       </Border>
@@ -379,6 +380,9 @@ $conteudoDiagnostico = Build-DiagnosticoTab -window $window -scriptsDir $scripts
 . (Join-Path $dir "modules\Tab-Inicializacao.ps1")
 $conteudoInicializacao = Build-InicializacaoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
+. (Join-Path $dir "modules\Tab-GPU.ps1")
+$conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+
 . (Join-Path $dir "modules\Tab-Instalar.ps1")
 $conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
@@ -407,6 +411,7 @@ $secoes = [ordered]@{
   "TabWin11"       = @{ Titulo = "Criador Win11"; Elemento = $conteudoWin11; NomeNav = "NavWin11" }
   "TabDiagnostico" = @{ Titulo = "Diagnóstico"; Elemento = $conteudoDiagnostico; NomeNav = "NavDiagnostico" }
   "TabInicializacao" = @{ Titulo = "Inicialização"; Elemento = $conteudoInicializacao; NomeNav = "NavInicializacao" }
+  "TabGPU"         = @{ Titulo = "Placa de Vídeo"; Elemento = $conteudoGPU; NomeNav = "NavGPU" }
 }
 
 function Mostrar-Secao([string]$chave) {
