@@ -146,6 +146,133 @@ function New-CartaoGpuGUI($window, $gpu) {
   return $cartao
 }
 
+# Constroi a secao "Verificar driver mais recente" -- compartilhada entre
+# NVIDIA e AMD (mesmo layout, so troca qual script de lookup chamar e o
+# link/instrucao de "versao mais antiga"). Nivel de modulo pela mesma
+# regra de sempre: os Add_Click daqui usam GetNewClosure() sobre os
+# PARAMETROS dessa funcao, nunca chamam outra funcao aninhada.
+function Add-SecaoVerificarDriverGUI($window, $painelVendor, $scriptsDir, $emSegundoPlano, $setStatus, $debugLog, $principal, $nomeVendor, $scriptLookup, $nomeBotaoVerificar, $urlVersaoAntiga, $instrucaoVersaoAntiga) {
+  $dataInstalado = $null
+  if ($principal.DriverDate) { try { $dataInstalado = [datetime]$principal.DriverDate } catch {} }
+  $versaoInstalada = $principal.DriverVersion
+
+  $btnVerificarDriver = New-Object System.Windows.Controls.Button
+  $btnVerificarDriver.Name = $nomeBotaoVerificar
+  $btnVerificarDriver.Content = "Verificar driver mais recente"
+  $btnVerificarDriver.Style = $window.FindResource("BtnGhost")
+  $btnVerificarDriver.Margin = "0,14,0,0"
+  $btnVerificarDriver.HorizontalAlignment = "Left"
+  $painelVendor.Children.Add($btnVerificarDriver) | Out-Null
+
+  $txtResultadoDriver = New-Object System.Windows.Controls.TextBlock
+  $txtResultadoDriver.TextWrapping = "Wrap"
+  $txtResultadoDriver.FontSize = 12
+  $txtResultadoDriver.Margin = "0,8,0,0"
+  $txtResultadoDriver.Visibility = "Collapsed"
+  $painelVendor.Children.Add($txtResultadoDriver) | Out-Null
+
+  $barraBotoesDriver = New-Object System.Windows.Controls.StackPanel
+  $barraBotoesDriver.Orientation = "Horizontal"
+  $barraBotoesDriver.Margin = "0,8,0,0"
+  $barraBotoesDriver.Visibility = "Collapsed"
+  $btnBaixarDriver = New-Object System.Windows.Controls.Button
+  $btnBaixarDriver.Content = "Baixar driver mais recente"
+  $btnBaixarDriver.Style = $window.FindResource("BtnPrimary")
+  $btnBaixarDriver.Margin = "0,0,10,0"
+  $btnNotasDriver = New-Object System.Windows.Controls.Button
+  $btnNotasDriver.Content = "Ver notas de versão"
+  $btnNotasDriver.Style = $window.FindResource("BtnGhost")
+  $btnNotasDriver.Margin = "0,0,10,0"
+  $barraBotoesDriver.Children.Add($btnBaixarDriver) | Out-Null
+  $barraBotoesDriver.Children.Add($btnNotasDriver) | Out-Null
+  $painelVendor.Children.Add($barraBotoesDriver) | Out-Null
+
+  $btnVersaoAntiga = New-Object System.Windows.Controls.Button
+  $btnVersaoAntiga.Content = "Usar uma versão mais antiga"
+  $btnVersaoAntiga.Style = $window.FindResource("BtnGhost")
+  $btnVersaoAntiga.Margin = "0,8,0,0"
+  $btnVersaoAntiga.HorizontalAlignment = "Left"
+  $btnVersaoAntiga.Add_Click({
+    try { Start-Process $urlVersaoAntiga } catch {}
+    $setStatus.Invoke($instrucaoVersaoAntiga) | Out-Null
+  }.GetNewClosure())
+  $painelVendor.Children.Add($btnVersaoAntiga) | Out-Null
+
+  $callbackVerificarDriver = {
+    param($resultado, $erro)
+    $txtResultadoDriver.Visibility = "Visible"
+    if ($erro -or -not $resultado -or $resultado.Erro) {
+      $motivo = if ($resultado -and $resultado.Erro) { $resultado.Erro } else { "erro inesperado" }
+      $txtResultadoDriver.Text = "Não consegui verificar automaticamente ($motivo). Use 'Usar uma versão mais antiga' abaixo pra abrir a página oficial e conferir manualmente."
+      $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
+      return
+    }
+
+    $txtComparacao = "Driver instalado: $versaoInstalada"
+    if ($dataInstalado) { $txtComparacao += " ($($dataInstalado.ToString('dd/MM/yyyy')))" }
+    $txtComparacao += " | Mais recente da $nomeVendor`: $($resultado.Versao) ($($resultado.Data))"
+
+    if ($dataInstalado -and $resultado.DataParsed -and $resultado.DataParsed -gt $dataInstalado) {
+      $dias = (New-TimeSpan -Start $dataInstalado -End $resultado.DataParsed).Days
+      $txtResultadoDriver.Text = "$txtComparacao`nSeu driver está desatualizado (o mais novo saiu $dias dia(s) depois do seu)."
+      $txtResultadoDriver.Foreground = $window.FindResource("BrushBad")
+    } elseif ($dataInstalado) {
+      $txtResultadoDriver.Text = "$txtComparacao`nSeu driver já está atualizado (ou mais novo que o que a $nomeVendor retornou pra essa busca)."
+      $txtResultadoDriver.Foreground = $window.FindResource("BrushGood")
+    } else {
+      $txtResultadoDriver.Text = "$txtComparacao`nNão consegui comparar a data do seu driver instalado."
+      $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
+    }
+
+    $barraBotoesDriver.Visibility = "Visible"
+    $btnBaixarDriver.Tag = $resultado.UrlDownload
+    $btnNotasDriver.Tag = $resultado.UrlNotas
+    $btnNotasDriver.IsEnabled = [bool]$resultado.UrlNotas
+  }.GetNewClosure()
+
+  $btnBaixarDriver.Add_Click({
+    param($s, $e)
+    try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
+  })
+  $btnNotasDriver.Add_Click({
+    param($s, $e)
+    try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
+  })
+
+  $btnVerificarDriver.Add_Click({
+    try {
+      $setStatus.Invoke("Consultando o site da $nomeVendor em segundo plano...") | Out-Null
+      $trabalho = {
+        param($caminhoScript, $nomeGpu)
+        $saida = & $caminhoScript -NomeGpu $nomeGpu 2>&1
+        $linhas = @($saida)
+        $primeira = "$($linhas | Select-Object -First 1)"
+        if ($primeira -match "^Erro:\s*(.+)") { return @{ Erro = $matches[1] } }
+        $r = @{}
+        foreach ($l in $linhas) {
+          if ($l -match "^Versao:\s*(.+)") { $r.Versao = $matches[1].Trim() }
+          elseif ($l -match "^Data:\s*(.+)") { $r.Data = $matches[1].Trim() }
+          elseif ($l -match "^UrlDownload:\s*(.+)") { $r.UrlDownload = $matches[1].Trim() }
+          elseif ($l -match "^UrlNotas:\s*(.+)") { $r.UrlNotas = $matches[1].Trim() }
+        }
+        if (-not $r.Versao) { return @{ Erro = "resposta incompleta" } }
+        # NVIDIA devolve data tipo "Wed Sep 09, 2026", AMD devolve
+        # "2026-09-03" (ISO) -- tenta os dois formatos conhecidos antes
+        # de desistir de comparar por data.
+        $r.DataParsed = $null
+        foreach ($formato in @("ddd MMM dd, yyyy", "yyyy-MM-dd")) {
+          try { $r.DataParsed = [datetime]::ParseExact($r.Data, $formato, [System.Globalization.CultureInfo]::InvariantCulture); break } catch {}
+        }
+        return $r
+      }
+      $emSegundoPlano.Invoke(@($btnVerificarDriver), $trabalho, @((Join-Path $scriptsDir $scriptLookup), $principal.Name), $callbackVerificarDriver, $setStatus)
+    } catch {
+      "ERRO no ${nomeBotaoVerificar}: $_" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao verificar driver -- veja o log.") | Out-Null
+    }
+  }.GetNewClosure())
+}
+
 function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus, $debugLog, $scriptsDir, $emSegundoPlano) {
   $painelGpuInfo.Children.Clear()
   $painelVendor.Children.Clear()
@@ -196,120 +323,7 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
         $dica.Text = "Dentro do painel, pra desempenho máximo: 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'."
         $painelVendor.Children.Add($dica) | Out-Null
 
-        # --- Checagem de driver mais recente (so NVIDIA) ---
-        $dataInstalado = $null
-        if ($principal.DriverDate) { try { $dataInstalado = [datetime]$principal.DriverDate } catch {} }
-        $versaoInstalada = $principal.DriverVersion
-
-        $btnVerificarDriver = New-Object System.Windows.Controls.Button
-        $btnVerificarDriver.Name = "BtnGpuVerificarDriverNvidia"
-        $btnVerificarDriver.Content = "Verificar driver mais recente"
-        $btnVerificarDriver.Style = $window.FindResource("BtnGhost")
-        $btnVerificarDriver.Margin = "0,14,0,0"
-        $btnVerificarDriver.HorizontalAlignment = "Left"
-        $painelVendor.Children.Add($btnVerificarDriver) | Out-Null
-
-        $txtResultadoDriver = New-Object System.Windows.Controls.TextBlock
-        $txtResultadoDriver.TextWrapping = "Wrap"
-        $txtResultadoDriver.FontSize = 12
-        $txtResultadoDriver.Margin = "0,8,0,0"
-        $txtResultadoDriver.Visibility = "Collapsed"
-        $painelVendor.Children.Add($txtResultadoDriver) | Out-Null
-
-        $barraBotoesDriver = New-Object System.Windows.Controls.StackPanel
-        $barraBotoesDriver.Orientation = "Horizontal"
-        $barraBotoesDriver.Margin = "0,8,0,0"
-        $barraBotoesDriver.Visibility = "Collapsed"
-        $btnBaixarDriver = New-Object System.Windows.Controls.Button
-        $btnBaixarDriver.Content = "Baixar driver mais recente"
-        $btnBaixarDriver.Style = $window.FindResource("BtnPrimary")
-        $btnBaixarDriver.Margin = "0,0,10,0"
-        $btnNotasDriver = New-Object System.Windows.Controls.Button
-        $btnNotasDriver.Content = "Ver notas de versão"
-        $btnNotasDriver.Style = $window.FindResource("BtnGhost")
-        $btnNotasDriver.Margin = "0,0,10,0"
-        $barraBotoesDriver.Children.Add($btnBaixarDriver) | Out-Null
-        $barraBotoesDriver.Children.Add($btnNotasDriver) | Out-Null
-        $painelVendor.Children.Add($barraBotoesDriver) | Out-Null
-
-        $btnVersaoAntiga = New-Object System.Windows.Controls.Button
-        $btnVersaoAntiga.Content = "Usar uma versão mais antiga"
-        $btnVersaoAntiga.Style = $window.FindResource("BtnGhost")
-        $btnVersaoAntiga.Margin = "0,8,0,0"
-        $btnVersaoAntiga.HorizontalAlignment = "Left"
-        $btnVersaoAntiga.Add_Click({
-          try { Start-Process "https://www.nvidia.com/Download/index.aspx" } catch {}
-          $setStatus.Invoke("Na página da NVIDIA, selecione: Tipo = GeForce, Série = GeForce RTX 30 Series, Produto = $($principal.Name -replace '^NVIDIA\s+',''), Sistema = Windows 11 -- e marque 'mostrar todos os drivers' pra ver o histórico de versões.") | Out-Null
-        }.GetNewClosure())
-        $painelVendor.Children.Add($btnVersaoAntiga) | Out-Null
-
-        $callbackVerificarDriver = {
-          param($resultado, $erro)
-          $txtResultadoDriver.Visibility = "Visible"
-          if ($erro -or -not $resultado -or $resultado.Erro) {
-            $motivo = if ($resultado -and $resultado.Erro) { $resultado.Erro } else { "erro inesperado" }
-            $txtResultadoDriver.Text = "Não consegui verificar automaticamente ($motivo). Use 'Usar uma versão mais antiga' abaixo pra abrir a página oficial e conferir manualmente."
-            $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
-            return
-          }
-
-          $txtComparacao = "Driver instalado: $versaoInstalada"
-          if ($dataInstalado) { $txtComparacao += " ($($dataInstalado.ToString('dd/MM/yyyy')))" }
-          $txtComparacao += " | Mais recente da NVIDIA: $($resultado.Versao) ($($resultado.Data))"
-
-          if ($dataInstalado -and $resultado.DataParsed -and $resultado.DataParsed -gt $dataInstalado) {
-            $dias = (New-TimeSpan -Start $dataInstalado -End $resultado.DataParsed).Days
-            $txtResultadoDriver.Text = "$txtComparacao`nSeu driver está desatualizado (o mais novo saiu $dias dia(s) depois do seu)."
-            $txtResultadoDriver.Foreground = $window.FindResource("BrushBad")
-          } elseif ($dataInstalado) {
-            $txtResultadoDriver.Text = "$txtComparacao`nSeu driver já está atualizado (ou mais novo que o que a NVIDIA retornou pra essa busca)."
-            $txtResultadoDriver.Foreground = $window.FindResource("BrushGood")
-          } else {
-            $txtResultadoDriver.Text = "$txtComparacao`nNão consegui comparar a data do seu driver instalado."
-            $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
-          }
-
-          $barraBotoesDriver.Visibility = "Visible"
-          $btnBaixarDriver.Tag = $resultado.UrlDownload
-          $btnNotasDriver.Tag = $resultado.UrlNotas
-          $btnNotasDriver.IsEnabled = [bool]$resultado.UrlNotas
-        }.GetNewClosure()
-
-        $btnBaixarDriver.Add_Click({
-          param($s, $e)
-          try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
-        })
-        $btnNotasDriver.Add_Click({
-          param($s, $e)
-          try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
-        })
-
-        $btnVerificarDriver.Add_Click({
-          try {
-            $setStatus.Invoke("Consultando o site da NVIDIA em segundo plano...") | Out-Null
-            $trabalho = {
-              param($caminhoScript, $nomeGpu)
-              $saida = & $caminhoScript -NomeGpu $nomeGpu 2>&1
-              $linhas = @($saida)
-              $primeira = "$($linhas | Select-Object -First 1)"
-              if ($primeira -match "^Erro:\s*(.+)") { return @{ Erro = $matches[1] } }
-              $r = @{}
-              foreach ($l in $linhas) {
-                if ($l -match "^Versao:\s*(.+)") { $r.Versao = $matches[1].Trim() }
-                elseif ($l -match "^Data:\s*(.+)") { $r.Data = $matches[1].Trim() }
-                elseif ($l -match "^UrlDownload:\s*(.+)") { $r.UrlDownload = $matches[1].Trim() }
-                elseif ($l -match "^UrlNotas:\s*(.+)") { $r.UrlNotas = $matches[1].Trim() }
-              }
-              if (-not $r.Versao) { return @{ Erro = "resposta incompleta" } }
-              try { $r.DataParsed = [datetime]::ParseExact($r.Data, "ddd MMM dd, yyyy", [System.Globalization.CultureInfo]::InvariantCulture) } catch { $r.DataParsed = $null }
-              return $r
-            }
-            $emSegundoPlano.Invoke(@($btnVerificarDriver), $trabalho, @((Join-Path $scriptsDir "_nvidia_driver_lookup.ps1"), $principal.Name), $callbackVerificarDriver, $setStatus)
-          } catch {
-            "ERRO no BtnGpuVerificarDriverNvidia: $_" | Out-File $debugLog -Append
-            $setStatus.Invoke("Erro ao verificar driver -- veja o log.") | Out-Null
-          }
-        }.GetNewClosure())
+        Add-SecaoVerificarDriverGUI $window $painelVendor $scriptsDir $emSegundoPlano $setStatus $debugLog $principal "NVIDIA" "_nvidia_driver_lookup.ps1" "BtnGpuVerificarDriverNvidia" "https://www.nvidia.com/Download/index.aspx" "Na página da NVIDIA, selecione: Tipo = GeForce, Série = GeForce RTX 30 Series, Produto = $($principal.Name -replace '^NVIDIA\s+',''), Sistema = Windows 11 -- e marque 'mostrar todos os drivers' pra ver o histórico de versões."
       }
       "AMD" {
         $btnPainel.Content = "Abrir AMD Software"
@@ -322,6 +336,8 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
         $painelVendor.Children.Add($btnPainel) | Out-Null
         $dica.Text = "Dentro do AMD Software, pra desempenho máximo: 'Jogos' > 'Configurações Gráficas Globais' > ative 'Radeon Anti-Lag'. Em placas mais novas, teste 'Radeon Boost' ligado e desligado pra ver qual fica melhor no seu jogo."
         $painelVendor.Children.Add($dica) | Out-Null
+
+        Add-SecaoVerificarDriverGUI $window $painelVendor $scriptsDir $emSegundoPlano $setStatus $debugLog $principal "AMD" "_amd_driver_lookup.ps1" "BtnGpuVerificarDriverAmd" "https://www.amd.com/en/support/download/drivers.html" "Na página da AMD, procure por '$($principal.Name)' e marque a opção de ver todas as versões/histórico de drivers disponíveis."
       }
       default {
         $dica.Text = "Placa de vídeo integrada Intel -- o ganho de desempenho vem principalmente de manter o driver atualizado (veja aviso acima, se houver). Se o 'Intel Graphics Command Center' estiver instalado, abra pelo menu Iniciar pra ajustes adicionais."
@@ -517,6 +533,18 @@ function Build-GPUTab {
   }
   $painelRaiz.Children.Add($gradeGpu) | Out-Null
 
+  # IMPORTANTE: os $trabalho abaixo devolvem uma LISTA de hashtables
+  # (@{Nome=;Ligado=}), nunca UM hashtable grande com varias chaves. O
+  # $resultado que chega aqui no callback e o retorno de EndInvoke() --
+  # um PSDataCollection de 1 item (o objeto que o trabalho devolveu).
+  # Acessar PROPRIEDADE nesse wrapper (".Keys", ".Count") e proxied
+  # certinho pro objeto de dentro, mas o INDEXADOR "[$chave]" direto
+  # NUNCA e -- ele tenta indexar o proprio PSDataCollection (que so
+  # aceita indice numerico), e devolve $null pra qualquer chave string,
+  # silenciosamente. Confirmado testando isolado. Por isso: sempre
+  # "foreach ($item in $resultado)" (nunca "$resultado[$chave]" direto),
+  # e cada $item vem como o hashtable de verdade, ai sim "$item.Nome"
+  # funciona normal.
   $callbackGpuStatus = {
     param($resultado, $erro)
     if ($erro) {
@@ -524,9 +552,9 @@ function Build-GPUTab {
       $setStatus.Invoke("Erro ao ler status -- veja o log.") | Out-Null
       return
     }
-    foreach ($nome in $resultado.Keys) {
-      if ($null -ne $resultado[$nome] -and $checkboxesPorItemGPU.ContainsKey($nome)) {
-        $checkboxesPorItemGPU[$nome].IsChecked = [bool]$resultado[$nome]
+    foreach ($item in $resultado) {
+      if ($item -and $null -ne $item.Ligado -and $checkboxesPorItemGPU.ContainsKey($item.Nome)) {
+        $checkboxesPorItemGPU[$item.Nome].IsChecked = [bool]$item.Ligado
       }
     }
     $setStatus.Invoke("Status atualizado.") | Out-Null
@@ -539,7 +567,17 @@ function Build-GPUTab {
       $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
       return
     }
-    $setStatus.Invoke("Pronto: $resultado item(ns) aplicado(s).") | Out-Null
+    $confirmados = 0
+    $total = 0
+    foreach ($item in $resultado) {
+      if (-not $item) { continue }
+      $total++
+      if ($checkboxesPorItemGPU.ContainsKey($item.Nome) -and $null -ne $item.Ligado) {
+        $checkboxesPorItemGPU[$item.Nome].IsChecked = [bool]$item.Ligado
+        if ($item.Ligado) { $confirmados++ }
+      }
+    }
+    $setStatus.Invoke("Pronto: $confirmados de $total confirmado(s) como aplicado(s) (status real reconferido).") | Out-Null
   }.GetNewClosure()
 
   $callbackGpuReverter = {
@@ -549,7 +587,17 @@ function Build-GPUTab {
       $setStatus.Invoke("Erro ao reverter -- veja o log.") | Out-Null
       return
     }
-    $setStatus.Invoke("Pronto: $resultado item(ns) revertido(s).") | Out-Null
+    $confirmados = 0
+    $total = 0
+    foreach ($item in $resultado) {
+      if (-not $item) { continue }
+      $total++
+      if ($checkboxesPorItemGPU.ContainsKey($item.Nome) -and $null -ne $item.Ligado) {
+        $checkboxesPorItemGPU[$item.Nome].IsChecked = [bool]$item.Ligado
+        if (-not $item.Ligado) { $confirmados++ }
+      }
+    }
+    $setStatus.Invoke("Pronto: $confirmados de $total confirmado(s) como revertido(s) (status real reconferido).") | Out-Null
   }.GetNewClosure()
 
   $btnGpuStatus.Add_Click({
@@ -558,12 +606,12 @@ function Build-GPUTab {
       $setStatus.Invoke("Lendo status atual em segundo plano...") | Out-Null
       $trabalho = {
         param($itens, $dirScripts)
-        $resultados = @{}
+        $resultados = @()
         foreach ($item in $itens) {
           $progresso.Texto = "Lendo status: $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
-          try { $resultados[$item.Nome] = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
-          catch { $resultados[$item.Nome] = $null }
+          try { $resultados += @{ Nome = $item.Nome; Ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") } }
+          catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
         }
         return $resultados
       }
@@ -582,12 +630,15 @@ function Build-GPUTab {
       $setStatus.Invoke("Aplicando $($itens.Count) item(ns) em segundo plano...") | Out-Null
       $trabalho = {
         param($itens, $dirScripts)
+        $resultados = @()
         foreach ($item in $itens) {
           $progresso.Texto = "Aplicando: $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try { & $caminho -Action Aplicar 2>&1 | Out-Null } catch {}
+          try { $resultados += @{ Nome = $item.Nome; Ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") } }
+          catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
         }
-        return $itens.Count
+        return $resultados
       }
       $emSegundoPlano.Invoke(@($btnGpuStatus, $btnGpuAplicar, $btnGpuReverter), $trabalho, @($itens, $scriptsDir), $callbackGpuAplicar, $setStatus)
     } catch {
@@ -604,12 +655,15 @@ function Build-GPUTab {
       $setStatus.Invoke("Revertendo $($itens.Count) item(ns) em segundo plano...") | Out-Null
       $trabalho = {
         param($itens, $dirScripts)
+        $resultados = @()
         foreach ($item in $itens) {
           $progresso.Texto = "Revertendo: $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try { & $caminho -Action Reverter 2>&1 | Out-Null } catch {}
+          try { $resultados += @{ Nome = $item.Nome; Ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") } }
+          catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
         }
-        return $itens.Count
+        return $resultados
       }
       $emSegundoPlano.Invoke(@($btnGpuStatus, $btnGpuAplicar, $btnGpuReverter), $trabalho, @($itens, $scriptsDir), $callbackGpuReverter, $setStatus)
     } catch {

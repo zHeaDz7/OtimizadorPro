@@ -271,6 +271,16 @@ function Build-AjustesTab {
   # aninhado dentro de outra closure perde a referencia de variaveis do
   # escopo avo (bug real confirmado com teste minimo em segundo plano
   # de longa duracao); criando aqui a captura fica confiavel.
+  # IMPORTANTE: os $trabalho abaixo devolvem LISTA de hashtables
+  # (@{Nome=;Ligado=}), nunca UM hashtable grande com varias chaves.
+  # $resultado aqui e o retorno de EndInvoke() -- um PSDataCollection de
+  # 1 item. Propriedade (".Keys", ".Count") e proxied certinho pro
+  # objeto de dentro, mas o INDEXADOR "[$chave]" direto NUNCA e -- tenta
+  # indexar o proprio PSDataCollection (so aceita indice numerico) e
+  # devolve $null silenciosamente pra qualquer chave string (confirmado
+  # testando isolado -- essa era a causa real de checkbox nao atualizar
+  # depois de Aplicar/Status). Por isso sempre "foreach ($item in
+  # $resultado)", nunca "$resultado[$chave]" direto.
   $callbackStatus = {
     param($resultado, $erro)
     if ($erro) {
@@ -278,9 +288,9 @@ function Build-AjustesTab {
       $setStatus.Invoke("Erro ao ler status -- veja o log.") | Out-Null
       return
     }
-    foreach ($nome in $resultado.Keys) {
-      if ($null -ne $resultado[$nome] -and $checkboxesPorItem.ContainsKey($nome)) {
-        $checkboxesPorItem[$nome].IsChecked = [bool]$resultado[$nome]
+    foreach ($item in $resultado) {
+      if ($item -and $null -ne $item.Ligado -and $checkboxesPorItem.ContainsKey($item.Nome)) {
+        $checkboxesPorItem[$item.Nome].IsChecked = [bool]$item.Ligado
       }
     }
     $setStatus.Invoke("Status atualizado.") | Out-Null
@@ -293,7 +303,14 @@ function Build-AjustesTab {
       $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
       return
     }
-    $setStatus.Invoke("Pronto: $resultado item(ns) aplicado(s).") | Out-Null
+    $confirmados = 0
+    foreach ($item in $resultado) {
+      if ($item -and $checkboxesPorItem.ContainsKey($item.Nome) -and $null -ne $item.Ligado) {
+        $checkboxesPorItem[$item.Nome].IsChecked = [bool]$item.Ligado
+        if ($item.Ligado) { $confirmados++ }
+      }
+    }
+    $setStatus.Invoke("Pronto: $confirmados item(ns) confirmado(s) como aplicado(s) (status real reconferido -- itens sem checagem formal de status continuam marcados como você deixou).") | Out-Null
   }.GetNewClosure()
 
   $callbackReverter = {
@@ -303,7 +320,14 @@ function Build-AjustesTab {
       $setStatus.Invoke("Erro ao reverter -- veja o log.") | Out-Null
       return
     }
-    $setStatus.Invoke("Pronto: $resultado item(ns) revertido(s).") | Out-Null
+    $confirmados = 0
+    foreach ($item in $resultado) {
+      if ($item -and $checkboxesPorItem.ContainsKey($item.Nome) -and $null -ne $item.Ligado) {
+        $checkboxesPorItem[$item.Nome].IsChecked = [bool]$item.Ligado
+        if (-not $item.Ligado) { $confirmados++ }
+      }
+    }
+    $setStatus.Invoke("Pronto: $confirmados item(ns) confirmado(s) como revertido(s) (status real reconferido).") | Out-Null
   }.GetNewClosure()
 
   $btnStatus.Add_Click({
@@ -313,7 +337,7 @@ function Build-AjustesTab {
 
       $trabalho = {
         param($itens, $dirScripts)
-        $resultados = @{}
+        $resultados = @()
         $i = 0
         foreach ($item in $itens) {
           $i++
@@ -325,8 +349,8 @@ function Build-AjustesTab {
               "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
               "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
             }
-            $resultados[$item.Nome] = $ligado
-          } catch { $resultados[$item.Nome] = $null }
+            $resultados += @{ Nome = $item.Nome; Ligado = $ligado }
+          } catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
         }
         return $resultados
       }
@@ -347,6 +371,7 @@ function Build-AjustesTab {
 
       $trabalho = {
         param($itens, $dirScripts)
+        $resultados = @()
         $i = 0
         foreach ($item in $itens) {
           $i++
@@ -360,8 +385,22 @@ function Build-AjustesTab {
               default        { & $caminho 2>&1 | Out-Null }
             }
           } catch {}
+          # So toggle/onoff tem -Action Status formal -- "direto"/
+          # "onoffdireto" nao tem como reconfirmar (mesma limitacao ja
+          # aceita no resto do app), fica de fora do hashtable e a
+          # checkbox continua como o usuario deixou.
+          if ($item.Conv -eq "toggle" -or $item.Conv -eq "onoff") {
+            try {
+              $ligado = $null
+              switch ($item.Conv) {
+                "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
+                "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
+              }
+              $resultados += @{ Nome = $item.Nome; Ligado = $ligado }
+            } catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
+          }
         }
-        return $itens.Count
+        return $resultados
       }
 
       $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackAplicar, $setStatus)
@@ -380,6 +419,7 @@ function Build-AjustesTab {
 
       $trabalho = {
         param($itens, $dirScripts)
+        $resultados = @()
         $i = 0
         foreach ($item in $itens) {
           $i++
@@ -389,8 +429,16 @@ function Build-AjustesTab {
             if ($item.Conv -eq "toggle") { & $caminho -Action Reverter 2>&1 | Out-Null }
             else { & $caminho -Action Off 2>&1 | Out-Null }
           } catch {}
+          try {
+            $ligado = $null
+            switch ($item.Conv) {
+              "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
+              "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
+            }
+            $resultados += @{ Nome = $item.Nome; Ligado = $ligado }
+          } catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
         }
-        return $itens.Count
+        return $resultados
       }
 
       $emSegundoPlano.Invoke(@($btnStatus, $btnAplicar, $btnReverter), $trabalho, @($itens, $scriptsDir), $callbackReverter, $setStatus)

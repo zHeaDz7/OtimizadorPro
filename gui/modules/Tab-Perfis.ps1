@@ -28,7 +28,7 @@ $Global:PerfisScripts = [ordered]@{
   "Avancado" = @(
     "_defender_exclusions.ps1", "_mouse_fix.ps1", "_reg_usb_suspend.ps1", "_reg_kernel_timer.ps1",
     "_reg_mouse_queue.ps1", "_reg_islc.ps1", "_reg_accessibility.ps1", "_reg_priority_boost.ps1",
-    "_core_parking.ps1", "_gpu_msi_mode.ps1", "_gpu_tdr_delay.ps1", "_reg_hibernacao.ps1",
+    "_gpu_msi_mode.ps1", "_gpu_tdr_delay.ps1", "_reg_hibernacao.ps1",
     "_reg_background_apps.ps1", "_reg_start_ads.ps1", "_reg_fast_startup.ps1", "_reg_sysmain.ps1"
   )
 }
@@ -140,6 +140,41 @@ function Invoke-Perfil($nomePerfil, $itens, $botao, $txtResultado, $scriptsDir, 
   }
 }
 
+# Le o status ATUAL de cada item verificavel do perfil (toggle/onoff --
+# "direto"/"onoffdireto" nao tem -Action Status formal, mesma limitacao
+# ja aceita no resto do app) sem aplicar nada -- so pra responder "esse
+# perfil ja esta em vigor nesse PC?" a qualquer momento, nao so logo
+# apos clicar Aplicar. Nivel de modulo pela mesma razao de Invoke-Perfil
+# (chamada de dentro de Add_Click({...}.GetNewClosure())).
+function Invoke-VerificarPerfil($nomePerfil, $itens, $txtResultado, $scriptsDir, $emSegundoPlano, $callbackVerificarPerfil, $setStatus, $debugLog) {
+  try {
+    $setStatus.Invoke("Verificando status do perfil $nomePerfil em segundo plano...") | Out-Null
+
+    $trabalho = {
+      param($itens, $dirScripts, $txtResultadoRef)
+      $resultados = @()
+      foreach ($item in $itens) {
+        if ($item.Conv -ne "toggle" -and $item.Conv -ne "onoff") { continue }
+        $caminho = Join-Path $dirScripts $item.Script
+        try {
+          $ligado = $null
+          switch ($item.Conv) {
+            "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
+            "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
+          }
+          $resultados += @{ Nome = $item.Nome; Ligado = $ligado }
+        } catch { $resultados += @{ Nome = $item.Nome; Ligado = $null } }
+      }
+      return @{ Itens = $resultados; TxtResultado = $txtResultadoRef }
+    }
+
+    $emSegundoPlano.Invoke(@(), $trabalho, @($itens, $scriptsDir, $txtResultado), $callbackVerificarPerfil, $setStatus)
+  } catch {
+    "ERRO no Invoke-VerificarPerfil ($nomePerfil): $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
+    $setStatus.Invoke("Erro ao verificar o perfil -- veja o log.") | Out-Null
+  }
+}
+
 function Get-ItensPerfilPorScripts([string[]]$nomesScripts) {
   $todos = @($Global:ListaAjustes) + @($Global:ListaAjustesGPU)
   $ordenado = @()
@@ -224,12 +259,22 @@ function Build-PerfisTab {
       $painel.Children.Add($li) | Out-Null
     }
 
+    $linhaBotoes = New-Object System.Windows.Controls.StackPanel
+    $linhaBotoes.Orientation = "Horizontal"
+    $linhaBotoes.Margin = "0,14,0,10"
     $btn = New-Object System.Windows.Controls.Button
     $btn.Name = $nomeBotao
     $btn.Content = "Aplicar este perfil"
     $btn.Style = $window.FindResource($corBotao)
-    $btn.Margin = "0,14,0,10"
-    $painel.Children.Add($btn) | Out-Null
+    $btn.Margin = "0,0,10,0"
+    $linhaBotoes.Children.Add($btn) | Out-Null
+
+    $btnVerificar = New-Object System.Windows.Controls.Button
+    $btnVerificar.Name = "$($nomeBotao)Verificar"
+    $btnVerificar.Content = "Verificar se já está aplicado"
+    $btnVerificar.Style = $window.FindResource("BtnGhost")
+    $linhaBotoes.Children.Add($btnVerificar) | Out-Null
+    $painel.Children.Add($linhaBotoes) | Out-Null
 
     $txtResultado = New-Object System.Windows.Controls.TextBlock
     $txtResultado.TextWrapping = "Wrap"
@@ -251,7 +296,7 @@ function Build-PerfisTab {
     $expander.Content = $txtDetalhes
     $painel.Children.Add($expander) | Out-Null
 
-    return @{ Cartao = $borda; Botao = $btn; TxtResultado = $txtResultado }
+    return @{ Cartao = $borda; Botao = $btn; BotaoVerificar = $btnVerificar; TxtResultado = $txtResultado }
   }
 
   $itensGamers = Get-ItensPerfilPorScripts $Global:PerfisScripts["Gamers"]
@@ -327,6 +372,57 @@ function Build-PerfisTab {
   $cProdutividade.Botao.Add_Click({ Invoke-Perfil "Produtividade" $itensProdutividade $cProdutividade.Botao $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
   $cEquilibrio.Botao.Add_Click({ Invoke-Perfil "Equilíbrio" $itensEquilibrio $cEquilibrio.Botao $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
   $cAvancado.Botao.Add_Click({ Invoke-Perfil "Avançado" $itensAvancado $cAvancado.Botao $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
+
+  # Callback compartilhado do "Verificar se já está aplicado" -- so LE o
+  # status atual, nunca aplica nada. Mostra "X de Y itens verificáveis
+  # estão ativos agora" (itens "direto" nao tem -Action Status formal,
+  # ficam de fora da contagem -- mesma limitacao ja aceita no resto do
+  # app, mas melhor mostrar isso do que fingir que verificou tudo).
+  $callbackVerificarPerfil = {
+    param($resultado, $erro)
+    if ($erro) {
+      "ERRO ao verificar perfil: $erro" | Out-File $debugLog -Append
+      $setStatus.Invoke("Erro ao verificar o perfil -- veja o log.") | Out-Null
+      return
+    }
+    $txtResultado = $resultado.TxtResultado
+    $ligados = 0
+    $total = 0
+    foreach ($it in $resultado.Itens) {
+      if (-not $it -or $null -eq $it.Ligado) { continue }
+      $total++
+      if ($it.Ligado) { $ligados++ }
+    }
+
+    $txtResultado.Visibility = "Visible"
+    if ($total -eq 0) {
+      $txtResultado.Text = "Nenhum item desse perfil tem confirmação formal de status -- não dá pra saber automaticamente se está aplicado."
+      $txtResultado.Foreground = $window.FindResource("BrushMuted")
+    } elseif ($ligados -eq $total) {
+      $txtResultado.Text = "Perfil aplicado: $ligados de $total itens verificáveis estão ativos agora."
+      $txtResultado.Foreground = $window.FindResource("BrushGood")
+    } elseif ($ligados -eq 0) {
+      $txtResultado.Text = "Perfil não aplicado: 0 de $total itens verificáveis estão ativos agora."
+      $txtResultado.Foreground = $window.FindResource("BrushMuted")
+    } else {
+      $txtResultado.Text = "Perfil parcialmente aplicado: $ligados de $total itens verificáveis estão ativos agora."
+      $txtResultado.Foreground = $window.FindResource("BrushAccentInk")
+    }
+    $setStatus.Invoke("Verificação concluída.") | Out-Null
+  }.GetNewClosure()
+
+  $cGamers.BotaoVerificar.Add_Click({ Invoke-VerificarPerfil "Gamers" $itensGamers $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog }.GetNewClosure())
+  $cProdutividade.BotaoVerificar.Add_Click({ Invoke-VerificarPerfil "Produtividade" $itensProdutividade $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog }.GetNewClosure())
+  $cEquilibrio.BotaoVerificar.Add_Click({ Invoke-VerificarPerfil "Equilíbrio" $itensEquilibrio $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog }.GetNewClosure())
+  $cAvancado.BotaoVerificar.Add_Click({ Invoke-VerificarPerfil "Avançado" $itensAvancado $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog }.GetNewClosure())
+
+  # Verifica os 4 perfis automaticamente assim que a aba abre -- assim o
+  # usuario ve na hora se um perfil que ja aplicou antes continua ativo,
+  # sem precisar clicar em nada primeiro.
+  Invoke-VerificarPerfil "Gamers" $itensGamers $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+  Invoke-VerificarPerfil "Produtividade" $itensProdutividade $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+  Invoke-VerificarPerfil "Equilíbrio" $itensEquilibrio $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+  Invoke-VerificarPerfil "Avançado" $itensAvancado $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
 
   $sv = New-Object System.Windows.Controls.ScrollViewer
   $sv.Content = $raiz

@@ -18,11 +18,13 @@ function Formatar-NumeroGB([double]$gb) {
 
 # Scripts que NUNCA contam no placar nem sao auto-aplicados pelo "Aplicar
 # tudo que falta" -- ficam disponiveis como opt-in manual na aba Ajustes,
-# mas sao preferencia puramente cosmetica (barra de tarefas) ou ferramenta
+# mas sao preferencia puramente cosmetica (barra de tarefas), ferramenta
 # de sessao/temporaria (pausar o Windows Search antes de jogar, reverter
-# depois), nunca uma linha de base que faca sentido aplicar sem o usuario
-# escolher isso de proposito.
-$Global:ScriptsExcluidosDoPlacar = @("_reg_taskbar_esquerda.ps1", "_search_pause.ps1")
+# depois), ou uma limitacao real de hardware/driver confirmada nessa
+# maquina (Core Parking -- o Windows trava o valor maximo em 0 mesmo no
+# plano de energia menos restritivo que existe, confirmado via powercfg
+# e registro direto -- nao e algo que o script consiga forcar).
+$Global:ScriptsExcluidosDoPlacar = @("_reg_taskbar_esquerda.ps1", "_search_pause.ps1", "_core_parking.ps1")
 
 # Funcao de nivel de modulo, usada só pelo callback (que roda de volta na
 # thread principal, não dentro do $trabalho de Invoke-EmSegundoPlano --
