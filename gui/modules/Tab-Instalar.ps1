@@ -76,6 +76,13 @@ $Global:CatalogoApps = @(
   @{ Nome = "Oracle VirtualBox"; Id = "Oracle.VirtualBox"; Cat = "Desenvolvimento"; Desc = "Roda outro sistema operacional dentro de uma janela (máquina virtual)." }
   @{ Nome = "Postman"; Id = "Postman.Postman"; Cat = "Desenvolvimento"; Desc = "Testar chamada de API -- ferramenta de programador." }
 
+  # --- Limpeza e Manutenção (programas oficiais/reconhecidos, sem
+  # promessa vazia -- cada um so faz o que a descricao diz, nada de
+  # "PC com 5000 erros" ou coisa do tipo) ---
+  @{ Nome = "Microsoft PC Manager"; Id = "9PM860492SZD"; Cat = "Limpeza e Manutenção"; Desc = "Utilitário oficial da Microsoft pra limpar arquivo temporário e organizar o PC, num clique." }
+  @{ Nome = "WinDirStat"; Id = "WinDirStat.WinDirStat"; Cat = "Limpeza e Manutenção"; Desc = "Mostra visualmente o que está ocupando espaço no disco -- ajuda a achar arquivo grande escondido. Código aberto." }
+  @{ Nome = "BleachBit"; Id = "BleachBit.BleachBit"; Cat = "Limpeza e Manutenção"; Desc = "Limpa arquivo temporário, cache e histórico de forma transparente. Código aberto, sem letra miúda." }
+
   # --- Produtividade ---
   @{ Nome = "Notion"; Id = "Notion.Notion"; Cat = "Produtividade"; Desc = "Anotação, organização e banco de dados, tudo em um." }
   @{ Nome = "Obsidian"; Id = "Obsidian.Obsidian"; Cat = "Produtividade"; Desc = "Anotação com link entre páginas (segunda memória)." }
