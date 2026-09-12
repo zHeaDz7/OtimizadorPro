@@ -12,8 +12,16 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Get-PropriedadeModeracao($adapterName) {
+  # "*InterruptModeration" e a chave de registro padrao do Windows pra
+  # essa propriedade -- independe de idioma/fabricante. O nome exibido
+  # (DisplayName) muda com o idioma do Windows (ex: em portugues aparece
+  # como "Moderacao de interrupcoes", nao "Interrupt Moderation") -- por
+  # isso comparar so pelo DisplayName em ingles fazia o script achar que
+  # a placa "nao suporta" a opcao, mesmo suportando. RegistryKeyword
+  # primeiro, DisplayName em ingles como reforco pra driver antigo/raro
+  # que nao exponha a chave padrao.
   return Get-NetAdapterAdvancedProperty -Name $adapterName -ErrorAction SilentlyContinue |
-    Where-Object { $_.DisplayName -match "Interrupt Moderation" } | Select-Object -First 1
+    Where-Object { $_.RegistryKeyword -eq "*InterruptModeration" -or $_.DisplayName -match "Interrupt Moderation" } | Select-Object -First 1
 }
 
 try {
@@ -36,7 +44,12 @@ try {
   }
 
   if ($Action -eq "Status") {
-    $desligado = ($comSuporte | Where-Object { $_.Prop.DisplayValue -match "Disabled|Off|Desativado" }).Count -eq $comSuporte.Count
+    # @(...) e obrigatorio aqui -- se so 1 adaptador tiver a opcao (caso
+    # comum: so 1 placa de rede fisica ativa), Where-Object devolve o
+    # objeto solto (nao array), e ".Count" num objeto solto do
+    # PowerShell da vazio/$null, nao 1 -- fazendo a comparacao falhar
+    # sempre e o item nunca reportar LIGADO mesmo quando realmente esta.
+    $desligado = @($comSuporte | Where-Object { $_.Prop.DisplayValue -match "Disabled|Off|Desativado|Desabilitado" }).Count -eq $comSuporte.Count
     if ($desligado) { Write-Output "LIGADO" } else { Write-Output "DESLIGADO" }
     return
   }
@@ -46,7 +59,7 @@ try {
     foreach ($item in $comSuporte) {
       try {
         $valoresPossiveis = (Get-NetAdapterAdvancedProperty -Name $item.Adapter -RegistryKeyword $item.Prop.RegistryKeyword -AllProperties -ErrorAction SilentlyContinue).ValidDisplayValues
-        $padrao = $valoresPossiveis | Where-Object { $_ -match "Enabled|On|Adaptive|Ativado" } | Select-Object -First 1
+        $padrao = $valoresPossiveis | Where-Object { $_ -match "Enabled|On|Adaptive|Ativado|Habilitado" } | Select-Object -First 1
         if (-not $padrao) { $padrao = $valoresPossiveis | Select-Object -Last 1 }
         if ($padrao) {
           Set-NetAdapterAdvancedProperty -Name $item.Adapter -RegistryKeyword $item.Prop.RegistryKeyword -DisplayValue $padrao -ErrorAction Stop
@@ -62,7 +75,7 @@ try {
   foreach ($item in $comSuporte) {
     try {
       $valoresPossiveis = (Get-NetAdapterAdvancedProperty -Name $item.Adapter -RegistryKeyword $item.Prop.RegistryKeyword -AllProperties -ErrorAction SilentlyContinue).ValidDisplayValues
-      $desligar = $valoresPossiveis | Where-Object { $_ -match "Disabled|Off|Desativado" } | Select-Object -First 1
+      $desligar = $valoresPossiveis | Where-Object { $_ -match "Disabled|Off|Desativado|Desabilitado" } | Select-Object -First 1
       if ($desligar) {
         Set-NetAdapterAdvancedProperty -Name $item.Adapter -RegistryKeyword $item.Prop.RegistryKeyword -DisplayValue $desligar -ErrorAction Stop
         $n++
