@@ -17,7 +17,12 @@ $Global:PrefixoInicializacaoDesativada = "Desativado_OtimizadorPro_"
 function Build-InicializacaoTab {
   param($window, $scriptsDir, $setStatus, $emSegundoPlano)
 
-  $raiz = New-Object System.Windows.Controls.StackPanel
+  # DockPanel (nao StackPanel) -- raiz precisa dockar a barra de botoes
+  # em cima e deixar o ScrollViewer preencher o resto, senao a lista de
+  # itens de inicializacao cresce pra fora da tela sem jeito de rolar
+  # (bug real reportado -- StackPanel sozinho nunca tem scroll). Mesmo
+  # padrao ja usado em Tab-Ajustes.ps1 e Tab-GPU.ps1.
+  $raiz = New-Object System.Windows.Controls.DockPanel
   $raiz.Margin = "0,0,20,0"
 
   $titulo = New-Object System.Windows.Controls.TextBlock
@@ -26,6 +31,7 @@ function Build-InicializacaoTab {
   $titulo.FontSize = 18
   $titulo.FontWeight = "Bold"
   $titulo.Margin = "0,0,0,4"
+  [System.Windows.Controls.DockPanel]::SetDock($titulo, "Top")
   $raiz.Children.Add($titulo) | Out-Null
 
   $sub = New-Object System.Windows.Controls.TextBlock
@@ -33,6 +39,7 @@ function Build-InicializacaoTab {
   $sub.Foreground = $window.FindResource("BrushMuted")
   $sub.TextWrapping = "Wrap"
   $sub.Margin = "0,0,0,16"
+  [System.Windows.Controls.DockPanel]::SetDock($sub, "Top")
   $raiz.Children.Add($sub) | Out-Null
 
   $avisoCuidado = New-Object System.Windows.Controls.TextBlock
@@ -41,11 +48,13 @@ function Build-InicializacaoTab {
   $avisoCuidado.TextWrapping = "Wrap"
   $avisoCuidado.FontSize = 11.5
   $avisoCuidado.Margin = "0,0,0,16"
+  [System.Windows.Controls.DockPanel]::SetDock($avisoCuidado, "Top")
   $raiz.Children.Add($avisoCuidado) | Out-Null
 
   $barraBotoes = New-Object System.Windows.Controls.StackPanel
   $barraBotoes.Orientation = "Horizontal"
   $barraBotoes.Margin = "0,0,0,16"
+  [System.Windows.Controls.DockPanel]::SetDock($barraBotoes, "Top")
   $btnVerificar = New-Object System.Windows.Controls.Button
   $btnVerificar.Name = "BtnInicializacaoVerificar"
   $btnVerificar.Content = "Verificar itens de inicialização"
@@ -72,8 +81,10 @@ function Build-InicializacaoTab {
   $barraBotoes.Children.Add($btnAbrirGerenciador) | Out-Null
   $raiz.Children.Add($barraBotoes) | Out-Null
 
+  $scroll = New-Object System.Windows.Controls.ScrollViewer
   $painelLista = New-Object System.Windows.Controls.StackPanel
-  $raiz.Children.Add($painelLista) | Out-Null
+  $scroll.Content = $painelLista
+  $raiz.Children.Add($scroll) | Out-Null
 
   $txtVazio = New-Object System.Windows.Controls.TextBlock
   $txtVazio.Text = "Clique em 'Verificar itens de inicialização' pra ver a lista."

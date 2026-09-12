@@ -146,7 +146,7 @@ function New-CartaoGpuGUI($window, $gpu) {
   return $cartao
 }
 
-function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus, $debugLog) {
+function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus, $debugLog, $scriptsDir, $emSegundoPlano) {
   $painelGpuInfo.Children.Clear()
   $painelVendor.Children.Clear()
   try {
@@ -195,6 +195,121 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
         $painelVendor.Children.Add($btnPainel) | Out-Null
         $dica.Text = "Dentro do painel, pra desempenho máximo: 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'."
         $painelVendor.Children.Add($dica) | Out-Null
+
+        # --- Checagem de driver mais recente (so NVIDIA) ---
+        $dataInstalado = $null
+        if ($principal.DriverDate) { try { $dataInstalado = [datetime]$principal.DriverDate } catch {} }
+        $versaoInstalada = $principal.DriverVersion
+
+        $btnVerificarDriver = New-Object System.Windows.Controls.Button
+        $btnVerificarDriver.Name = "BtnGpuVerificarDriverNvidia"
+        $btnVerificarDriver.Content = "Verificar driver mais recente"
+        $btnVerificarDriver.Style = $window.FindResource("BtnGhost")
+        $btnVerificarDriver.Margin = "0,14,0,0"
+        $btnVerificarDriver.HorizontalAlignment = "Left"
+        $painelVendor.Children.Add($btnVerificarDriver) | Out-Null
+
+        $txtResultadoDriver = New-Object System.Windows.Controls.TextBlock
+        $txtResultadoDriver.TextWrapping = "Wrap"
+        $txtResultadoDriver.FontSize = 12
+        $txtResultadoDriver.Margin = "0,8,0,0"
+        $txtResultadoDriver.Visibility = "Collapsed"
+        $painelVendor.Children.Add($txtResultadoDriver) | Out-Null
+
+        $barraBotoesDriver = New-Object System.Windows.Controls.StackPanel
+        $barraBotoesDriver.Orientation = "Horizontal"
+        $barraBotoesDriver.Margin = "0,8,0,0"
+        $barraBotoesDriver.Visibility = "Collapsed"
+        $btnBaixarDriver = New-Object System.Windows.Controls.Button
+        $btnBaixarDriver.Content = "Baixar driver mais recente"
+        $btnBaixarDriver.Style = $window.FindResource("BtnPrimary")
+        $btnBaixarDriver.Margin = "0,0,10,0"
+        $btnNotasDriver = New-Object System.Windows.Controls.Button
+        $btnNotasDriver.Content = "Ver notas de versão"
+        $btnNotasDriver.Style = $window.FindResource("BtnGhost")
+        $btnNotasDriver.Margin = "0,0,10,0"
+        $barraBotoesDriver.Children.Add($btnBaixarDriver) | Out-Null
+        $barraBotoesDriver.Children.Add($btnNotasDriver) | Out-Null
+        $painelVendor.Children.Add($barraBotoesDriver) | Out-Null
+
+        $btnVersaoAntiga = New-Object System.Windows.Controls.Button
+        $btnVersaoAntiga.Content = "Usar uma versão mais antiga"
+        $btnVersaoAntiga.Style = $window.FindResource("BtnGhost")
+        $btnVersaoAntiga.Margin = "0,8,0,0"
+        $btnVersaoAntiga.HorizontalAlignment = "Left"
+        $btnVersaoAntiga.Add_Click({
+          try { Start-Process "https://www.nvidia.com/Download/index.aspx" } catch {}
+          $setStatus.Invoke("Na página da NVIDIA, selecione: Tipo = GeForce, Série = GeForce RTX 30 Series, Produto = $($principal.Name -replace '^NVIDIA\s+',''), Sistema = Windows 11 -- e marque 'mostrar todos os drivers' pra ver o histórico de versões.") | Out-Null
+        }.GetNewClosure())
+        $painelVendor.Children.Add($btnVersaoAntiga) | Out-Null
+
+        $callbackVerificarDriver = {
+          param($resultado, $erro)
+          $txtResultadoDriver.Visibility = "Visible"
+          if ($erro -or -not $resultado -or $resultado.Erro) {
+            $motivo = if ($resultado -and $resultado.Erro) { $resultado.Erro } else { "erro inesperado" }
+            $txtResultadoDriver.Text = "Não consegui verificar automaticamente ($motivo). Use 'Usar uma versão mais antiga' abaixo pra abrir a página oficial e conferir manualmente."
+            $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
+            return
+          }
+
+          $txtComparacao = "Driver instalado: $versaoInstalada"
+          if ($dataInstalado) { $txtComparacao += " ($($dataInstalado.ToString('dd/MM/yyyy')))" }
+          $txtComparacao += " | Mais recente da NVIDIA: $($resultado.Versao) ($($resultado.Data))"
+
+          if ($dataInstalado -and $resultado.DataParsed -and $resultado.DataParsed -gt $dataInstalado) {
+            $dias = (New-TimeSpan -Start $dataInstalado -End $resultado.DataParsed).Days
+            $txtResultadoDriver.Text = "$txtComparacao`nSeu driver está desatualizado (o mais novo saiu $dias dia(s) depois do seu)."
+            $txtResultadoDriver.Foreground = $window.FindResource("BrushBad")
+          } elseif ($dataInstalado) {
+            $txtResultadoDriver.Text = "$txtComparacao`nSeu driver já está atualizado (ou mais novo que o que a NVIDIA retornou pra essa busca)."
+            $txtResultadoDriver.Foreground = $window.FindResource("BrushGood")
+          } else {
+            $txtResultadoDriver.Text = "$txtComparacao`nNão consegui comparar a data do seu driver instalado."
+            $txtResultadoDriver.Foreground = $window.FindResource("BrushMuted")
+          }
+
+          $barraBotoesDriver.Visibility = "Visible"
+          $btnBaixarDriver.Tag = $resultado.UrlDownload
+          $btnNotasDriver.Tag = $resultado.UrlNotas
+          $btnNotasDriver.IsEnabled = [bool]$resultado.UrlNotas
+        }.GetNewClosure()
+
+        $btnBaixarDriver.Add_Click({
+          param($s, $e)
+          try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
+        })
+        $btnNotasDriver.Add_Click({
+          param($s, $e)
+          try { if ($s.Tag) { Start-Process $s.Tag } } catch {}
+        })
+
+        $btnVerificarDriver.Add_Click({
+          try {
+            $setStatus.Invoke("Consultando o site da NVIDIA em segundo plano...") | Out-Null
+            $trabalho = {
+              param($caminhoScript, $nomeGpu)
+              $saida = & $caminhoScript -NomeGpu $nomeGpu 2>&1
+              $linhas = @($saida)
+              $primeira = "$($linhas | Select-Object -First 1)"
+              if ($primeira -match "^Erro:\s*(.+)") { return @{ Erro = $matches[1] } }
+              $r = @{}
+              foreach ($l in $linhas) {
+                if ($l -match "^Versao:\s*(.+)") { $r.Versao = $matches[1].Trim() }
+                elseif ($l -match "^Data:\s*(.+)") { $r.Data = $matches[1].Trim() }
+                elseif ($l -match "^UrlDownload:\s*(.+)") { $r.UrlDownload = $matches[1].Trim() }
+                elseif ($l -match "^UrlNotas:\s*(.+)") { $r.UrlNotas = $matches[1].Trim() }
+              }
+              if (-not $r.Versao) { return @{ Erro = "resposta incompleta" } }
+              try { $r.DataParsed = [datetime]::ParseExact($r.Data, "ddd MMM dd, yyyy", [System.Globalization.CultureInfo]::InvariantCulture) } catch { $r.DataParsed = $null }
+              return $r
+            }
+            $emSegundoPlano.Invoke(@($btnVerificarDriver), $trabalho, @((Join-Path $scriptsDir "_nvidia_driver_lookup.ps1"), $principal.Name), $callbackVerificarDriver, $setStatus)
+          } catch {
+            "ERRO no BtnGpuVerificarDriverNvidia: $_" | Out-File $debugLog -Append
+            $setStatus.Invoke("Erro ao verificar driver -- veja o log.") | Out-Null
+          }
+        }.GetNewClosure())
       }
       "AMD" {
         $btnPainel.Content = "Abrir AMD Software"
@@ -325,7 +440,7 @@ function Build-GPUTab {
   $painelRaiz.Children.Add($painelVendor) | Out-Null
 
   $btnVerificar.Add_Click({
-    Atualizar-InfoGpuGUI $window $painelGpuInfo $painelVendor $setStatus $debugLog
+    Atualizar-InfoGpuGUI $window $painelGpuInfo $painelVendor $setStatus $debugLog $scriptsDir $emSegundoPlano
     $setStatus.Invoke("Informações da placa de vídeo atualizadas.") | Out-Null
   }.GetNewClosure())
 
@@ -594,7 +709,7 @@ function Build-GPUTab {
   }.GetNewClosure())
 
   # Carga inicial
-  Atualizar-InfoGpuGUI $window $painelGpuInfo $painelVendor $setStatus $debugLog
+  Atualizar-InfoGpuGUI $window $painelGpuInfo $painelVendor $setStatus $debugLog $scriptsDir $emSegundoPlano
   Carregar-PreferenciasGpuGUI $window $scriptsDir $listaPreferencias $setStatus $debugLog
   Carregar-ProcessosGpuGUI $comboProcessos $debugLog
 
