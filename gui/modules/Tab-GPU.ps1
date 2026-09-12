@@ -5,6 +5,12 @@
 # controle do fabricante certo, preferência de GPU por jogo específico e
 # reforço de prioridade pra jogo que já está rodando agora.
 
+# Dot-source no nivel do modulo (nao dentro de Build-GPUTab) -- precisa
+# ficar visivel de dentro do Add_Click({...}.GetNewClosure()) do botao
+# "Escolher jogo", e GetNewClosure() so capta funcao que ja e de nivel
+# de modulo/global, nunca uma funcao aninhada dentro de outra funcao.
+. (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "scripts\_lib_launchers.ps1")
+
 # Cada item aqui usa a mesma convenção -Action Aplicar/Reverter/Status
 # dos scripts de Ajustes -- nao reimplementa nada, so chama os scripts
 # que ja existem em scripts\.
@@ -525,6 +531,10 @@ function Build-GPUTab {
       $dlg.Filter = "Executável do jogo (*.exe)|*.exe"
       $dlg.Title = "Escolha o executável do jogo"
       if ($dlg.ShowDialog()) {
+        if (-not (Test-ExecutavelEhJogoLegitimo $dlg.FileName)) {
+          $setStatus.Invoke("Esse executável não foi reconhecido como um jogo instalado pela Steam, Epic Games ou outro launcher compatível. Só é possível configurar preferência de GPU pra jogos instalados por um launcher oficial.") | Out-Null
+          return
+        }
         $r = (& (Join-Path $scriptsDir "_gpu_preferencia_jogo.ps1") -Caminho $dlg.FileName -Action Definir 2>&1 | Select-Object -Last 1)
         $setStatus.Invoke("$r") | Out-Null
         Carregar-PreferenciasGpuGUI $window $scriptsDir $listaPreferencias $setStatus $debugLog

@@ -16,6 +16,29 @@ function Formatar-NumeroGB([double]$gb) {
   return "$gb GB"
 }
 
+# Scripts que NUNCA contam no placar nem sao auto-aplicados pelo "Aplicar
+# tudo que falta" -- ficam disponiveis como opt-in manual na aba Ajustes,
+# mas sao preferencia puramente cosmetica (barra de tarefas) ou ferramenta
+# de sessao/temporaria (pausar o Windows Search antes de jogar, reverter
+# depois), nunca uma linha de base que faca sentido aplicar sem o usuario
+# escolher isso de proposito.
+$Global:ScriptsExcluidosDoPlacar = @("_reg_taskbar_esquerda.ps1", "_search_pause.ps1")
+
+# Funcao de nivel de modulo, usada só pelo callback (que roda de volta na
+# thread principal, não dentro do $trabalho de Invoke-EmSegundoPlano --
+# aquele roda num Runspace totalmente separado que não enxerga nem
+# variavel nem funcao daqui, só o que é passado explicitamente por
+# argumento/AddArgument). Por isso o $trabalho só devolve o texto bruto
+# de saída de cada item não aplicado, e é aqui que a gente traduz isso
+# num motivo legível.
+function Get-MotivoNaoAplicado($saidaBruta) {
+  $texto = ($saidaBruta -join " ")
+  if ($texto -match "Administrador") { return "precisa que o Otimizador seja executado como Administrador" }
+  if ($texto -match "^NAO SUPORTADO" -or $texto -match "nao suporta|não suport") { return "essa opção não é suportada nesse hardware/driver" }
+  if ($texto -match "AVISO:\s*(.+)") { return $matches[1].Trim() }
+  return "não foi possível confirmar que a mudança foi aplicada"
+}
+
 function New-BarraProgresso($window, $largura, $altura, $corFundo, $corPreenchimento) {
   $trilho = New-Object System.Windows.Controls.Border
   $trilho.Width = $largura
@@ -220,6 +243,30 @@ function Build-DiagnosticoTab {
 
   $painel.Children.Add($cardScore) | Out-Null
 
+  # --- Card de resultado do "Aplicar tudo que falta" (some ate a primeira vez que roda) ---
+  $cardResultado = New-Object System.Windows.Controls.Border
+  $cardResultado.BorderBrush = $window.FindResource("BrushBorder")
+  $cardResultado.BorderThickness = 1
+  $cardResultado.CornerRadius = 8
+  $cardResultado.Padding = 18
+  $cardResultado.Margin = "0,0,0,16"
+  $cardResultado.Visibility = "Collapsed"
+  $painelResultado = New-Object System.Windows.Controls.StackPanel
+  $cardResultado.Child = $painelResultado
+
+  $tResultado = New-Object System.Windows.Controls.TextBlock
+  $tResultado.Text = "Resultado de 'Aplicar tudo que falta'"
+  $tResultado.Foreground = $window.FindResource("BrushInk")
+  $tResultado.FontWeight = "Bold"
+  $tResultado.FontSize = 15
+  $tResultado.Margin = "0,0,0,10"
+  $painelResultado.Children.Add($tResultado) | Out-Null
+
+  $listaResultado = New-Object System.Windows.Controls.StackPanel
+  $painelResultado.Children.Add($listaResultado) | Out-Null
+
+  $painel.Children.Add($cardResultado) | Out-Null
+
   # Callback criado com GetNewClosure() UMA vez no escopo direto da
   # funcao (evita o bug de GetNewClosure() aninhado perder variavel).
   $callbackVerificar = {
@@ -245,20 +292,26 @@ function Build-DiagnosticoTab {
     $painelCategorias.Children.Clear()
     foreach ($cat in ($resultado.PorCategoria.Keys | Sort-Object)) {
       $info = $resultado.PorCategoria[$cat]
-      $pctCat = if ($info.Total -gt 0) { [math]::Round(($info.Ligados / $info.Total) * 100) } else { 0 }
 
       $linhaCat = New-Object System.Windows.Controls.StackPanel
       $linhaCat.Margin = "0,0,0,8"
       $cabecalhoCat = New-Object System.Windows.Controls.TextBlock
-      $cabecalhoCat.Text = "$cat -- $($info.Ligados)/$($info.Total)"
       $cabecalhoCat.Foreground = $window.FindResource("BrushMuted")
       $cabecalhoCat.FontSize = 11.5
       $cabecalhoCat.Margin = "0,0,0,3"
-      $linhaCat.Children.Add($cabecalhoCat) | Out-Null
 
-      $barraCat = New-BarraProgresso $window 500 10 $window.FindResource("BrushSurface2") $window.FindResource("BrushAccent")
-      Set-BarraPct $barraCat $pctCat
-      $linhaCat.Children.Add($barraCat.Trilho) | Out-Null
+      if ($info.Total -eq 0) {
+        $cabecalhoCat.Text = "$cat -- não avaliável no seu hardware"
+        $linhaCat.Children.Add($cabecalhoCat) | Out-Null
+      } else {
+        $pctCat = [math]::Round(($info.Ligados / $info.Total) * 100)
+        $cabecalhoCat.Text = "$cat -- $($info.Ligados)/$($info.Total)"
+        $linhaCat.Children.Add($cabecalhoCat) | Out-Null
+
+        $barraCat = New-BarraProgresso $window 500 10 $window.FindResource("BrushSurface2") $window.FindResource("BrushAccent")
+        Set-BarraPct $barraCat $pctCat
+        $linhaCat.Children.Add($barraCat.Trilho) | Out-Null
+      }
 
       $painelCategorias.Children.Add($linhaCat) | Out-Null
     }
@@ -272,24 +325,38 @@ function Build-DiagnosticoTab {
       $itens = @($Global:ListaAjustes)
 
       $trabalho = {
-        param($itens, $dirScripts)
+        param($itens, $dirScripts, $scriptsExcluidos)
         $ligados = 0
         $aplicaveis = 0
         $porCategoria = @{}
+        # Pre-popula toda categoria com item toggle/onoff (nao excluido),
+        # mesmo que acabe com Total=0 depois (ex: unico item da categoria
+        # relatar "NAO SUPORTADO" nesse hardware) -- assim a aba mostra
+        # "nao avaliavel" em vez de sumir a categoria sem explicacao.
+        foreach ($item in $itens) {
+          if ($item.Conv -ne "toggle" -and $item.Conv -ne "onoff") { continue }
+          if ($scriptsExcluidos -contains $item.Script) { continue }
+          if (-not $porCategoria.ContainsKey($item.Cat)) { $porCategoria[$item.Cat] = @{ Total = 0; Ligados = 0 } }
+        }
+
         $i = 0
         foreach ($item in $itens) {
           if ($item.Conv -ne "toggle" -and $item.Conv -ne "onoff") { continue }
+          if ($scriptsExcluidos -contains $item.Script) { continue }
           $i++
           $progresso.Texto = "Lendo status ($i): $($item.Nome)..."
-          $aplicaveis++
-          if (-not $porCategoria.ContainsKey($item.Cat)) { $porCategoria[$item.Cat] = @{ Total = 0; Ligados = 0 } }
-          $porCategoria[$item.Cat].Total++
           $caminho = Join-Path $dirScripts $item.Script
           try {
+            $saidaStatus = & $caminho -Action Status 2>&1
+            $primeiraLinha = "$($saidaStatus | Select-Object -First 1)"
+            if ($primeiraLinha -match "^NAO SUPORTADO") { continue }  # hardware/driver nao permite nessa maquina -- fora do placar
+
+            $aplicaveis++
+            $porCategoria[$item.Cat].Total++
             $ligado = $false
             switch ($item.Conv) {
-              "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
-              "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
+              "toggle" { $ligado = ($primeiraLinha -match "^LIGADO") }
+              "onoff"  { $ligado = (($saidaStatus -join " ") -match "Ligado") }
             }
             if ($ligado) { $ligados++; $porCategoria[$item.Cat].Ligados++ }
           } catch {}
@@ -322,7 +389,7 @@ function Build-DiagnosticoTab {
         }
       }
 
-      $emSegundoPlano.Invoke(@($btnVerificar, $btnAplicarFaltando), $trabalho, @($itens, $scriptsDir), $callbackVerificar, $setStatus)
+      $emSegundoPlano.Invoke(@($btnVerificar, $btnAplicarFaltando), $trabalho, @($itens, $scriptsDir, $Global:ScriptsExcluidosDoPlacar), $callbackVerificar, $setStatus)
     } catch {
       $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
       "ERRO no BtnDiagnosticoVerificar: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
@@ -338,42 +405,115 @@ function Build-DiagnosticoTab {
       $setStatus.Invoke("Erro ao aplicar -- veja o log.") | Out-Null
       return
     }
-    $setStatus.Invoke("Pronto: $resultado item(ns) aplicado(s). Clique em 'Verificar meu PC agora' de novo pra ver a pontuação atualizada.") | Out-Null
+
+    $aplicados = $resultado.Aplicados
+    # NAO envolver $resultado.NaoAplicados em @(...) aqui -- $resultado e
+    # o objeto devolvido por Invoke-EmSegundoPlano (uma PSDataCollection
+    # de 1 item vindo de EndInvoke()); quando o array de dentro do
+    # hashtable esta REALMENTE vazio, envolver com @() gera um array
+    # fantasma de 1 elemento contendo $null (confirmado testando isolado)
+    # -- daria "1 nao aplicado" falso mesmo com tudo certo. Ler .Count
+    # direto (sem @()) e o unico jeito confiavel de saber se esta vazio.
+    $qtdFalhas = 0
+    if ($resultado.NaoAplicados) { $qtdFalhas = $resultado.NaoAplicados.Count }
+
+    $cardResultado.Visibility = "Visible"
+    $listaResultado.Children.Clear()
+
+    if ($qtdFalhas -eq 0) {
+      $msgOk = New-Object System.Windows.Controls.TextBlock
+      $msgOk.Text = "Todos os itens que faltavam foram aplicados e confirmados ($aplicados)."
+      $msgOk.Foreground = $window.FindResource("BrushGood")
+      $msgOk.TextWrapping = "Wrap"
+      $listaResultado.Children.Add($msgOk) | Out-Null
+    } else {
+      $resumo = New-Object System.Windows.Controls.TextBlock
+      $resumo.Text = "$aplicados aplicado(s) e confirmado(s). $qtdFalhas não puderam ser aplicados:"
+      $resumo.Foreground = $window.FindResource("BrushInk")
+      $resumo.TextWrapping = "Wrap"
+      $resumo.Margin = "0,0,0,8"
+      $listaResultado.Children.Add($resumo) | Out-Null
+
+      $temMotivoAdmin = $false
+      foreach ($na in $resultado.NaoAplicados) {
+        $motivo = Get-MotivoNaoAplicado $na.SaidaBruta
+        if ($motivo -match "Administrador") { $temMotivoAdmin = $true }
+        $linha = New-Object System.Windows.Controls.TextBlock
+        $linha.Text = "- $($na.Nome): $motivo"
+        $linha.Foreground = $window.FindResource("BrushMuted")
+        $linha.TextWrapping = "Wrap"
+        $linha.FontSize = 12
+        $linha.Margin = "0,0,0,4"
+        $listaResultado.Children.Add($linha) | Out-Null
+      }
+
+      if ($temMotivoAdmin) {
+        $avisoAdmin = New-Object System.Windows.Controls.TextBlock
+        $avisoAdmin.Text = "Feche o Otimizador e abra de novo clicando com o botão direito > 'Executar como Administrador' (ou use o OtimizadorPro-GUI.bat) pra aplicar os itens que precisam de permissão elevada."
+        $avisoAdmin.Foreground = $window.FindResource("BrushAccentInk")
+        $avisoAdmin.TextWrapping = "Wrap"
+        $avisoAdmin.Margin = "8,8,0,0"
+        $listaResultado.Children.Add($avisoAdmin) | Out-Null
+      }
+    }
+
+    $setStatus.Invoke("Pronto: $aplicados item(ns) aplicado(s) e confirmado(s). Clique em 'Verificar meu PC agora' de novo pra ver a pontuação atualizada.") | Out-Null
   }.GetNewClosure()
 
   $btnAplicarFaltando.Add_Click({
     try {
       $setStatus.Invoke("Descobrindo o que ainda falta aplicar...") | Out-Null
-      $itens = @($Global:ListaAjustes | Where-Object { $_.Conv -eq "toggle" -or $_.Conv -eq "onoff" })
+      $itens = @($Global:ListaAjustes | Where-Object {
+        ($_.Conv -eq "toggle" -or $_.Conv -eq "onoff") -and ($Global:ScriptsExcluidosDoPlacar -notcontains $_.Script)
+      })
 
       $trabalho = {
         param($itens, $dirScripts)
+
+        function Test-Ligado($item, $saida) {
+          $primeira = "$($saida | Select-Object -First 1)"
+          switch ($item.Conv) {
+            "toggle" { return $primeira -match "^LIGADO" }
+            "onoff"  { return (($saida -join " ") -match "Ligado") }
+          }
+          return $false
+        }
+
         $faltando = @()
         foreach ($item in $itens) {
           $caminho = Join-Path $dirScripts $item.Script
           try {
-            $ligado = $false
-            switch ($item.Conv) {
-              "toggle" { $ligado = ((& $caminho -Action Status 2>&1 | Select-Object -First 1) -match "^LIGADO") }
-              "onoff"  { $ligado = (((& $caminho -Action Status 2>&1) -join " ") -match "Ligado") }
-            }
-            if (-not $ligado) { $faltando += $item }
+            $saidaStatus = & $caminho -Action Status 2>&1
+            if ("$($saidaStatus | Select-Object -First 1)" -match "^NAO SUPORTADO") { continue }
+            if (-not (Test-Ligado $item $saidaStatus)) { $faltando += $item }
           } catch {}
         }
 
         $aplicados = 0
+        $naoAplicados = @()
         $i = 0
         foreach ($item in $faltando) {
           $i++
           $progresso.Texto = "Aplicando ($i/$($faltando.Count)): $($item.Nome)..."
           $caminho = Join-Path $dirScripts $item.Script
           try {
-            if ($item.Conv -eq "toggle") { & $caminho -Action Aplicar 2>&1 | Out-Null }
-            else { & $caminho -Action On 2>&1 | Out-Null }
-            $aplicados++
-          } catch {}
+            $saidaAplicar = if ($item.Conv -eq "toggle") { & $caminho -Action Aplicar 2>&1 } else { & $caminho -Action On 2>&1 }
+            $saidaStatusPos = & $caminho -Action Status 2>&1
+            if (Test-Ligado $item $saidaStatusPos) {
+              $aplicados++
+            } else {
+              $naoAplicados += @{ Nome = $item.Nome; SaidaBruta = (@($saidaAplicar) + @($saidaStatusPos)) -join " " }
+            }
+          } catch {
+            $naoAplicados += @{ Nome = $item.Nome; SaidaBruta = "erro ao tentar aplicar: $_" }
+          }
         }
-        return $aplicados
+
+        # Garante barra de tarefas centralizada ao final, independente do
+        # estado anterior -- Reverter desse script ja seta TaskbarAl=1 (centro).
+        try { & (Join-Path $dirScripts "_reg_taskbar_esquerda.ps1") -Action Reverter 2>&1 | Out-Null } catch {}
+
+        return @{ Aplicados = $aplicados; NaoAplicados = $naoAplicados }
       }
 
       $emSegundoPlano.Invoke(@($btnVerificar, $btnAplicarFaltando), $trabalho, @($itens, $scriptsDir), $callbackAplicarFaltando, $setStatus)
