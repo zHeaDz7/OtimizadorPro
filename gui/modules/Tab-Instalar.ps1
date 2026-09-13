@@ -150,9 +150,10 @@ function Build-InstalarTab {
     $grade = New-Object System.Windows.Controls.WrapPanel
     foreach ($app in ($Global:CatalogoApps | Where-Object { $_.Cat -eq $cat })) {
       $borda = New-Object System.Windows.Controls.Border
+      $borda.Background = $window.FindResource("BrushSurface")
       $borda.BorderBrush = $window.FindResource("BrushBorder")
       $borda.BorderThickness = 1
-      $borda.CornerRadius = 6
+      $borda.CornerRadius = 10
       $borda.Margin = "0,0,10,10"
       $borda.Padding = "12,10"
       $borda.Width = 268

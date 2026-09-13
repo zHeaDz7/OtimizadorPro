@@ -33,50 +33,70 @@ try {
 $dir = $PSScriptRoot
 $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
+# _Icons.ps1 precisa estar carregado antes de qualquer icone da
+# sidebar ser construido (feito logo apos o XamlReader.Load, mais
+# abaixo neste arquivo).
+. (Join-Path $dir "modules\_Icons.ps1")
+
 # ============================================================
-# XAML -- janela principal + tema escuro (mesma paleta ambar/
-# grafite do site do produto, pra manter a identidade visual)
+# XAML -- janela principal + tema claro neutro (fundo bege claro,
+# cards brancos), com a sidebar mantendo um grafite escuro quente e
+# o acento ambar da marca (mesma cor de sempre, so que agora so
+# aparece como destaque, nao como fundo)
 # ============================================================
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Otimizador Pro" Height="820" Width="1360" MinHeight="640" MinWidth="1100"
-        WindowStartupLocation="CenterScreen" Background="#14181A" FontFamily="Segoe UI">
+        WindowStartupLocation="CenterScreen" Background="#F2EFE9" FontFamily="Segoe UI">
   <Window.Resources>
-    <SolidColorBrush x:Key="BrushBg" Color="#14181A"/>
-    <SolidColorBrush x:Key="BrushSurface" Color="#1B2023"/>
-    <SolidColorBrush x:Key="BrushSurface2" Color="#21272A"/>
-    <SolidColorBrush x:Key="BrushBorder" Color="#313A3E"/>
-    <SolidColorBrush x:Key="BrushInk" Color="#EDEFEF"/>
-    <SolidColorBrush x:Key="BrushMuted" Color="#93A0A4"/>
+    <SolidColorBrush x:Key="BrushBg" Color="#F2EFE9"/>
+    <SolidColorBrush x:Key="BrushSurface" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="BrushSurface2" Color="#EAE5DC"/>
+    <SolidColorBrush x:Key="BrushBorder" Color="#DEDAD0"/>
+    <SolidColorBrush x:Key="BrushInk" Color="#26221C"/>
+    <SolidColorBrush x:Key="BrushMuted" Color="#736C60"/>
     <SolidColorBrush x:Key="BrushAccent" Color="#E7A94C"/>
-    <SolidColorBrush x:Key="BrushAccentInk" Color="#FFD699"/>
-    <SolidColorBrush x:Key="BrushAccentSoft" Color="#3A2F1A"/>
-    <SolidColorBrush x:Key="BrushGood" Color="#7FD19F"/>
-    <SolidColorBrush x:Key="BrushBad" Color="#E08B73"/>
+    <SolidColorBrush x:Key="BrushAccentInk" Color="#8A5714"/>
+    <SolidColorBrush x:Key="BrushAccentSoft" Color="#F7E6C4"/>
+    <SolidColorBrush x:Key="BrushGood" Color="#2F9160"/>
+    <SolidColorBrush x:Key="BrushBad" Color="#C24E3A"/>
+    <SolidColorBrush x:Key="BrushOnAccent" Color="#241A0D"/>
+
+    <!-- Sidebar continua escura/quente de proposito, contraste com
+         o resto do app, que agora e claro (ver Contexto do plano) -->
+    <SolidColorBrush x:Key="BrushSidebarBg" Color="#211B14"/>
+    <SolidColorBrush x:Key="BrushSidebarInk" Color="#F3EEE6"/>
+    <SolidColorBrush x:Key="BrushSidebarMuted" Color="#9A907C"/>
+    <SolidColorBrush x:Key="BrushSidebarHoverBg" Color="#2D2620"/>
 
     <Style x:Key="NavItem" TargetType="RadioButton">
       <Setter Property="GroupName" Value="Navegacao"/>
-      <Setter Property="Foreground" Value="{StaticResource BrushMuted}"/>
+      <Setter Property="Foreground" Value="{StaticResource BrushSidebarMuted}"/>
       <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Padding" Value="16,11"/>
-      <Setter Property="Margin" Value="0,2"/>
+      <Setter Property="Padding" Value="14,10"/>
+      <Setter Property="Margin" Value="4,3"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" BorderThickness="3,0,0,0" BorderBrush="Transparent" Padding="{TemplateBinding Padding}">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="10" Padding="{TemplateBinding Padding}">
               <ContentPresenter VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushSurface2}"/>
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                <Setter Property="Foreground" Value="{StaticResource BrushInk}"/>
-              </Trigger>
+              <!-- IsMouseOver vem ANTES de IsChecked de proposito: quando os
+                   dois estao ativos ao mesmo tempo (mouse sobre o item ja
+                   selecionado), o trigger listado por ULTIMO e que vence no
+                   WPF, entao IsChecked (pill ambar) precisa ficar depois,
+                   senao passar o mouse no item ativo apagaria o pill. -->
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource BrushAccentInk}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushSidebarHoverBg}"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushSidebarInk}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushAccent}"/>
+                <Setter Property="Foreground" Value="{StaticResource BrushOnAccent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -86,7 +106,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
     <Style x:Key="BtnPrimary" TargetType="Button">
       <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="#1B1200"/>
+      <Setter Property="Foreground" Value="{StaticResource BrushOnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="16,9"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -141,7 +161,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal">
               <Border x:Name="Box" Width="16" Height="16" CornerRadius="3" BorderThickness="1.4" BorderBrush="{StaticResource BrushMuted}" Background="Transparent" VerticalAlignment="Center">
-                <Path x:Name="Check" Data="M2,7 L6,11 L14,2" Stroke="#1B1200" StrokeThickness="2" Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                <Path x:Name="Check" Data="M2,7 L6,11 L14,2" Stroke="{StaticResource BrushOnAccent}" StrokeThickness="2" Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
               </Border>
               <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
@@ -170,7 +190,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
                 <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                 <Setter TargetName="Knob" Property="Margin" Value="0,0,2,0"/>
-                <Setter TargetName="Knob" Property="Background" Value="#1B1200"/>
+                <Setter TargetName="Knob" Property="Background" Value="{StaticResource BrushOnAccent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -203,28 +223,31 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="232"/>
+        <ColumnDefinition Width="208"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
       <!-- Sidebar de navegacao -->
-      <Border Grid.Column="0" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,1,0">
+      <Border Grid.Column="0" Background="{StaticResource BrushSidebarBg}">
         <DockPanel LastChildFill="True">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="20,22,20,26">
             <Ellipse Width="9" Height="9" Fill="{StaticResource BrushAccent}" Margin="0,0,10,0"/>
-            <TextBlock Text="OTIMIZADOR PRO" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="14"/>
+            <TextBlock Text="OTIMIZADOR PRO" Foreground="{StaticResource BrushSidebarInk}" FontWeight="Bold" FontSize="13.5"/>
           </StackPanel>
           <StackPanel Margin="10,0,10,10">
-            <RadioButton x:Name="NavInstalar" Content="Instalar" Style="{StaticResource NavItem}" IsChecked="True"/>
-            <RadioButton x:Name="NavAjustes" Content="Ajustes" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavConfig" Content="Config" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavUpdates" Content="Atualizações" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavWin11" Content="Criador Win11" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavDiagnostico" Content="Diagnóstico" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavInicializacao" Content="Inicialização" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavGPU" Content="Placa de Vídeo" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavPerfis" Content="Perfis" Style="{StaticResource NavItem}"/>
-            <RadioButton x:Name="NavInternet" Content="Internet" Style="{StaticResource NavItem}"/>
+            <!-- Conteudo (icone+rotulo) de cada item e montado em codigo
+                 logo apos o XamlReader.Load, mais abaixo. So o
+                 x:Name/Style/IsChecked ficam aqui no XAML. -->
+            <RadioButton x:Name="NavInstalar" Style="{StaticResource NavItem}" IsChecked="True"/>
+            <RadioButton x:Name="NavAjustes" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavConfig" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavUpdates" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavWin11" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavDiagnostico" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavInicializacao" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavGPU" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavPerfis" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavInternet" Style="{StaticResource NavItem}"/>
           </StackPanel>
         </DockPanel>
       </Border>
@@ -238,7 +261,17 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
               <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="TxtTituloSecao" Text="Instalar" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
-            <TextBox x:Name="TxtBusca" Grid.Column="1" Width="280" Padding="10,7" Text="Buscar (nome, categoria)..." Foreground="{StaticResource BrushMuted}"/>
+            <Border Grid.Column="1" Background="{StaticResource BrushSurface2}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="10,0" Width="280">
+              <StackPanel Orientation="Horizontal">
+                <Viewbox Width="14" Height="14" Margin="0,0,8,0">
+                  <Canvas Width="24" Height="24">
+                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="12" Height="12" Stroke="{StaticResource BrushMuted}" StrokeThickness="1.8"/>
+                    <Line X1="14.5" Y1="14.5" X2="20" Y2="20" Stroke="{StaticResource BrushMuted}" StrokeThickness="1.8" StrokeStartLineCap="Round"/>
+                  </Canvas>
+                </Viewbox>
+                <TextBox x:Name="TxtBusca" Width="220" Padding="0,7" Text="Buscar (nome, categoria)..." Foreground="{StaticResource BrushMuted}" Background="Transparent" BorderThickness="0"/>
+              </StackPanel>
+            </Border>
           </Grid>
         </Border>
         <Border x:Name="AreaConteudo" Padding="24,20,24,20"/>
@@ -254,6 +287,69 @@ $window = [Windows.Markup.XamlReader]::Load($reader)
 # Referencias rapidas
 $txtStatus = $window.FindName("TxtStatus")
 function Set-Status([string]$msg) { $txtStatus.Text = $msg }
+
+# --- Icone + rotulo de cada item da sidebar --------------------------
+# O RadioButton.Content vira um StackPanel horizontal (icone + texto),
+# montado aqui em codigo (nao no XAML) -- assim o icone e um objeto
+# Shape de verdade (New-Icone, ver _Icons.ps1), sem precisar interpolar
+# geometria de path dentro do heredoc do XAML.
+#
+# O estado "ativo" muda o FUNDO do item via trigger no proprio Style
+# (NavItem, no XAML acima) -- mas a COR DO ICONE precisa ser trocada
+# aqui em codigo, porque Shape.Stroke nao e propriedade herdada do
+# Foreground do RadioButton (diferente de TextBlock, que ja segue
+# sozinho). Set-IconeNavCor faz essa troca sempre que a selecao muda
+# (chamado de dentro de Mostrar-Secao, mais abaixo).
+$Global:IconesNav = @{
+  NavInstalar       = "instalar"
+  NavAjustes        = "ajustes"
+  NavConfig         = "config"
+  NavUpdates        = "atualizacoes"
+  NavWin11          = "win11"
+  NavDiagnostico    = "diagnostico"
+  NavInicializacao  = "inicializacao"
+  NavGPU            = "gpu"
+  NavPerfis         = "perfis"
+  NavInternet       = "internet"
+}
+$rotulosNav = @{
+  NavInstalar       = "Instalar"
+  NavAjustes        = "Ajustes"
+  NavConfig         = "Config"
+  NavUpdates        = "Atualizações"
+  NavWin11          = "Criador Win11"
+  NavDiagnostico    = "Diagnóstico"
+  NavInicializacao  = "Inicialização"
+  NavGPU            = "Placa de Vídeo"
+  NavPerfis         = "Perfis"
+  NavInternet       = "Internet"
+}
+$Global:ViewboxesNav = @{}
+
+function Set-IconeNavCor($viewbox, $corBrush) {
+  if (-not $viewbox) { return }
+  $tela = $viewbox.Child
+  foreach ($filho in $tela.Children) {
+    if ($filho -isnot [System.Windows.Shapes.Shape]) { continue }
+    if ($null -ne $filho.Stroke) { $filho.Stroke = $corBrush }
+    if ($filho.Fill -is [System.Windows.Media.SolidColorBrush] -and $filho.Fill.Color.A -ne 0) { $filho.Fill = $corBrush }
+  }
+}
+
+foreach ($nomeNav in $Global:IconesNav.Keys) {
+  $btnNav = $window.FindName($nomeNav)
+  $conteudoNav = New-Object System.Windows.Controls.StackPanel
+  $conteudoNav.Orientation = "Horizontal"
+  $iconeNav = New-Icone $window $Global:IconesNav[$nomeNav] 17 $window.FindResource("BrushSidebarMuted")
+  $iconeNav.Margin = "0,0,12,0"
+  $Global:ViewboxesNav[$nomeNav] = $iconeNav
+  $conteudoNav.Children.Add($iconeNav) | Out-Null
+  $txtNav = New-Object System.Windows.Controls.TextBlock
+  $txtNav.Text = $rotulosNav[$nomeNav]
+  $txtNav.VerticalAlignment = "Center"
+  $conteudoNav.Children.Add($txtNav) | Out-Null
+  $btnNav.Content = $conteudoNav
+}
 
 # "Bombeia" a fila do Dispatcher do WPF -- Start-Sleep sozinho trava a
 # thread da UI e nunca deixa o evento de clique (agendado pelo
@@ -460,6 +556,15 @@ function Mostrar-Secao([string]$chave) {
   $txtTituloSecao.Text = $info.Titulo
   $navBtn = $window.FindName($info.NomeNav)
   if ($navBtn -and -not $navBtn.IsChecked) { $navBtn.IsChecked = $true }
+
+  # Recolore o icone de cada item conforme selecao atual -- ver
+  # comentario acima de Set-IconeNavCor (Shape.Stroke nao segue o
+  # Foreground do RadioButton sozinho).
+  foreach ($nomeNav in $Global:ViewboxesNav.Keys) {
+    $btnAtual = $window.FindName($nomeNav)
+    $corAlvo = if ($btnAtual.IsChecked) { $window.FindResource("BrushOnAccent") } else { $window.FindResource("BrushSidebarMuted") }
+    Set-IconeNavCor $Global:ViewboxesNav[$nomeNav] $corAlvo
+  }
 }
 
 foreach ($chave in $secoes.Keys) {

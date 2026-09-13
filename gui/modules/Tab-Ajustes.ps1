@@ -229,10 +229,10 @@ function Build-AjustesTab {
       $cartao.Width = 478
       $cartao.Padding = "12,10,12,10"
       $cartao.Margin = "0,0,14,14"
-      $cartao.CornerRadius = 6
+      $cartao.CornerRadius = 10
       $cartao.BorderBrush = $window.FindResource("BrushBorder")
       $cartao.BorderThickness = 1
-      $cartao.Background = $window.FindResource("BrushSurface2")
+      $cartao.Background = $window.FindResource("BrushSurface")
 
       $painelCartao = New-Object System.Windows.Controls.StackPanel
       $cartao.Child = $painelCartao

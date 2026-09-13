@@ -225,9 +225,10 @@ function Build-PerfisTab {
 
   function New-CartaoPerfil($window, $titulo, $desc, $itensSimples, $corBotao, $nomeBotao, $detalhes) {
     $borda = New-Object System.Windows.Controls.Border
+    $borda.Background = $window.FindResource("BrushSurface")
     $borda.BorderBrush = $window.FindResource("BrushBorder")
     $borda.BorderThickness = 1
-    $borda.CornerRadius = 8
+    $borda.CornerRadius = 10
     $borda.Margin = "0,0,16,16"
     $borda.Padding = 18
     $painel = New-Object System.Windows.Controls.StackPanel

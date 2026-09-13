@@ -5,6 +5,9 @@
 # WPF mesmo (sem biblioteca externa) -- pra pessoa ver de relance como
 # o PC está e o quanto dá pra melhorar.
 
+. (Join-Path $PSScriptRoot "_Icons.ps1")
+. (Join-Path $PSScriptRoot "_UI.ps1")
+
 # Funcao de nivel de modulo (nao aninhada dentro de Build-DiagnosticoTab)
 # -- GetNewClosure() so "engarrafa" VARIAVEIS do escopo, nunca funcoes
 # locais, entao uma funcao definida dentro de Build-DiagnosticoTab
@@ -105,15 +108,20 @@ function Build-DiagnosticoTab {
   $barraBotoes.Children.Add($btnAplicarFaltando) | Out-Null
   $painel.Children.Add($barraBotoes) | Out-Null
 
+  # --- Cartoes de estatistica (resumo rapido, preenchidos apos o
+  # primeiro "Verificar meu PC agora" -- ate la mostram "--") ---
+  $linhaEstat = New-Object System.Windows.Controls.WrapPanel
+  $linhaEstat.Margin = "0,0,0,16"
+  $estatPontuacao = New-CartaoEstat $window "diagnostico" "--" "Pontuação de otimização"
+  $estatItens = New-CartaoEstat $window "ajustes" "--" "Otimizações aplicadas"
+  $linhaEstat.Children.Add($estatPontuacao.Cartao) | Out-Null
+  $linhaEstat.Children.Add($estatItens.Cartao) | Out-Null
+  $painel.Children.Add($linhaEstat) | Out-Null
+
   # --- Card de hardware ---
-  $cardHw = New-Object System.Windows.Controls.Border
-  $cardHw.BorderBrush = $window.FindResource("BrushBorder")
-  $cardHw.BorderThickness = 1
-  $cardHw.CornerRadius = 8
-  $cardHw.Padding = 18
-  $cardHw.Margin = "0,0,0,16"
-  $painelHw = New-Object System.Windows.Controls.StackPanel
-  $cardHw.Child = $painelHw
+  $cHw = New-Cartao $window
+  $cardHw = $cHw.Cartao
+  $painelHw = $cHw.Painel
 
   $tHw = New-Object System.Windows.Controls.TextBlock
   $tHw.Text = "Seu hardware"
@@ -161,14 +169,9 @@ function Build-DiagnosticoTab {
   $gradeHw.Children.Add($linhaDisco.Cartao) | Out-Null
 
   # --- Card de pontuação ---
-  $cardScore = New-Object System.Windows.Controls.Border
-  $cardScore.BorderBrush = $window.FindResource("BrushBorder")
-  $cardScore.BorderThickness = 1
-  $cardScore.CornerRadius = 8
-  $cardScore.Padding = 18
-  $cardScore.Margin = "0,0,0,16"
-  $painelScore = New-Object System.Windows.Controls.StackPanel
-  $cardScore.Child = $painelScore
+  $cScore = New-Cartao $window
+  $cardScore = $cScore.Cartao
+  $painelScore = $cScore.Painel
 
   $tScore = New-Object System.Windows.Controls.TextBlock
   $tScore.Text = "Pontuação de otimização"
@@ -246,15 +249,10 @@ function Build-DiagnosticoTab {
   $painel.Children.Add($cardScore) | Out-Null
 
   # --- Card de resultado do "Aplicar tudo que falta" (some ate a primeira vez que roda) ---
-  $cardResultado = New-Object System.Windows.Controls.Border
-  $cardResultado.BorderBrush = $window.FindResource("BrushBorder")
-  $cardResultado.BorderThickness = 1
-  $cardResultado.CornerRadius = 8
-  $cardResultado.Padding = 18
-  $cardResultado.Margin = "0,0,0,16"
+  $cResultado = New-Cartao $window
+  $cardResultado = $cResultado.Cartao
+  $painelResultado = $cResultado.Painel
   $cardResultado.Visibility = "Collapsed"
-  $painelResultado = New-Object System.Windows.Controls.StackPanel
-  $cardResultado.Child = $painelResultado
 
   $tResultado = New-Object System.Windows.Controls.TextBlock
   $tResultado.Text = "Resultado de 'Aplicar tudo que falta'"
@@ -290,6 +288,8 @@ function Build-DiagnosticoTab {
     Set-BarraPct $barraAtual $pct
     $txtPctAtual.Text = "$pct%"
     $txtResumoScore.Text = "$($resultado.Ligados) de $($resultado.Aplicaveis) otimizações da aba Ajustes já estão aplicadas nesse PC."
+    $estatPontuacao.TxtValor.Text = "$pct%"
+    $estatItens.TxtValor.Text = "$($resultado.Ligados)/$($resultado.Aplicaveis)"
 
     $painelCategorias.Children.Clear()
     foreach ($cat in ($resultado.PorCategoria.Keys | Sort-Object)) {

@@ -159,9 +159,10 @@ function Build-ConfigTab {
 
   function New-CartaoAcao($window, $texto, $desc, $largura) {
     $borda = New-Object System.Windows.Controls.Border
+    $borda.Background = $window.FindResource("BrushSurface")
     $borda.BorderBrush = $window.FindResource("BrushBorder")
     $borda.BorderThickness = 1
-    $borda.CornerRadius = 6
+    $borda.CornerRadius = 10
     $borda.Margin = "0,0,10,10"
     $borda.Padding = "12,10"
     $borda.Width = $largura

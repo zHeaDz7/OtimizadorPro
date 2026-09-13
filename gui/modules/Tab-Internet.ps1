@@ -69,9 +69,10 @@ function Build-InternetTab {
 
   function New-CardBase() {
     $cartao = New-Object System.Windows.Controls.Border
+    $cartao.Background = $window.FindResource("BrushSurface")
     $cartao.BorderBrush = $window.FindResource("BrushBorder")
     $cartao.BorderThickness = 1
-    $cartao.CornerRadius = 8
+    $cartao.CornerRadius = 10
     $cartao.Padding = 18
     $cartao.Margin = "0,0,0,16"
     $painel = New-Object System.Windows.Controls.StackPanel

@@ -28,9 +28,10 @@ function Build-Win11Tab {
 
   # --- Passo 1: baixar a ferramenta oficial ---
   $b1 = New-Object System.Windows.Controls.Border
+  $b1.Background = $window.FindResource("BrushSurface")
   $b1.BorderBrush = $window.FindResource("BrushBorder")
   $b1.BorderThickness = 1
-  $b1.CornerRadius = 8
+  $b1.CornerRadius = 10
   $b1.Padding = 18
   $b1.Margin = "0,0,0,16"
   $p1 = New-Object System.Windows.Controls.StackPanel
@@ -76,9 +77,10 @@ function Build-Win11Tab {
 
   # --- Passo 2: gravar ISO num pendrive ---
   $b2 = New-Object System.Windows.Controls.Border
+  $b2.Background = $window.FindResource("BrushSurface")
   $b2.BorderBrush = $window.FindResource("BrushBorder")
   $b2.BorderThickness = 1
-  $b2.CornerRadius = 8
+  $b2.CornerRadius = 10
   $b2.Padding = 18
   $p2 = New-Object System.Windows.Controls.StackPanel
   $b2.Child = $p2

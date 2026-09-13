@@ -10,6 +10,8 @@
 # "Escolher jogo", e GetNewClosure() so capta funcao que ja e de nivel
 # de modulo/global, nunca uma funcao aninhada dentro de outra funcao.
 . (Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) "scripts\_lib_launchers.ps1")
+. (Join-Path $PSScriptRoot "_Icons.ps1")
+. (Join-Path $PSScriptRoot "_UI.ps1")
 
 # Cada item aqui usa a mesma convenção -Action Aplicar/Reverter/Status
 # dos scripts de Ajustes -- nao reimplementa nada, so chama os scripts
@@ -100,8 +102,8 @@ function New-CartaoGpuGUI($window, $gpu) {
   $cartao = New-Object System.Windows.Controls.Border
   $cartao.BorderBrush = $window.FindResource("BrushBorder")
   $cartao.BorderThickness = 1
-  $cartao.CornerRadius = 6
-  $cartao.Background = $window.FindResource("BrushSurface2")
+  $cartao.CornerRadius = 10
+  $cartao.Background = $window.FindResource("BrushSurface")
   $cartao.Padding = "14,12"
   $cartao.Margin = "0,0,0,10"
   $painel = New-Object System.Windows.Controls.StackPanel
@@ -297,10 +299,32 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
       $painelGpuInfo.Children.Add($vazio) | Out-Null
       return
     }
-    foreach ($g in $gpus) { $painelGpuInfo.Children.Add((New-CartaoGpuGUI $window $g)) | Out-Null }
-
     $integrada = $gpus | Where-Object { $_.Name -match "Intel|Radeon\(TM\) Graphics|AMD Radeon Graphics" -and $_.Name -notmatch "RTX|GTX|RX \d" }
     $dedicada = $gpus | Where-Object { $_.Name -match "RTX|GTX|RX \d|NVIDIA|Radeon RX" }
+    $principal = ($dedicada | Select-Object -First 1)
+    if (-not $principal) { $principal = $gpus[0] }
+    $vendorPrincipal = Get-GpuVendorGUI $principal.Name
+
+    # --- Cartoes de estatistica (VRAM e idade do driver da placa
+    # principal) -- so aparecem quando o dado da certo pra ler, nunca
+    # mostram numero inventado. ---
+    $vramPrincipal = Get-GpuVramGUI $principal.Name $principal.AdapterRAM
+    $diasAtrasPrincipal = $null
+    if ($principal.DriverDate) { try { $diasAtrasPrincipal = (New-TimeSpan -Start ([datetime]$principal.DriverDate) -End (Get-Date)).Days } catch {} }
+    $linhaEstatGpu = New-Object System.Windows.Controls.WrapPanel
+    $linhaEstatGpu.Margin = "0,0,0,4"
+    if ($vramPrincipal) {
+      $estatVram = New-CartaoEstat $window "gpu" "$vramPrincipal GB" "Memória de vídeo (VRAM)"
+      $linhaEstatGpu.Children.Add($estatVram.Cartao) | Out-Null
+    }
+    if ($null -ne $diasAtrasPrincipal) {
+      $estatDriver = New-CartaoEstat $window "atualizacoes" "$diasAtrasPrincipal dias" "Desde a última atualização do driver"
+      $linhaEstatGpu.Children.Add($estatDriver.Cartao) | Out-Null
+    }
+    if ($linhaEstatGpu.Children.Count -gt 0) { $painelGpuInfo.Children.Add($linhaEstatGpu) | Out-Null }
+
+    foreach ($g in $gpus) { $painelGpuInfo.Children.Add((New-CartaoGpuGUI $window $g)) | Out-Null }
+
     if ($gpus.Count -ge 2 -and $integrada -and $dedicada) {
       $avisoHibrido = New-Object System.Windows.Controls.TextBlock
       $avisoHibrido.Text = "Sistema com GPU híbrida detectado -- garanta que seus jogos rodem na placa DEDICADA (veja 'Preferência de GPU por Jogo' abaixo)."
@@ -310,10 +334,6 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
       $avisoHibrido.Margin = "0,0,0,10"
       $painelGpuInfo.Children.Add($avisoHibrido) | Out-Null
     }
-
-    $principal = ($dedicada | Select-Object -First 1)
-    if (-not $principal) { $principal = $gpus[0] }
-    $vendorPrincipal = Get-GpuVendorGUI $principal.Name
 
     $btnPainel = New-Object System.Windows.Controls.Button
     $dica = New-Object System.Windows.Controls.TextBlock
@@ -544,10 +564,10 @@ function Build-GPUTab {
     $cartao.Width = 478
     $cartao.Padding = "12,10,12,10"
     $cartao.Margin = "0,0,14,14"
-    $cartao.CornerRadius = 6
+    $cartao.CornerRadius = 10
     $cartao.BorderBrush = $window.FindResource("BrushBorder")
     $cartao.BorderThickness = 1
-    $cartao.Background = $window.FindResource("BrushSurface2")
+    $cartao.Background = $window.FindResource("BrushSurface")
     $painelCartao = New-Object System.Windows.Controls.StackPanel
     $cartao.Child = $painelCartao
 
