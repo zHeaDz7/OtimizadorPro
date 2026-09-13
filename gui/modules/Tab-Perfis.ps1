@@ -199,7 +199,7 @@ function Get-MotivoNaoAplicadoPerfil($saidaBruta) {
 }
 
 function Build-PerfisTab {
-  param($window, $scriptsDir, $setStatus, $emSegundoPlano)
+  param($window, $scriptsDir, $setStatus, $emSegundoPlano, [bool]$verificarAoAbrir = $true)
 
   $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
   $raiz = New-Object System.Windows.Controls.StackPanel
@@ -419,11 +419,17 @@ function Build-PerfisTab {
 
   # Verifica os 4 perfis automaticamente assim que a aba abre -- assim o
   # usuario ve na hora se um perfil que ja aplicou antes continua ativo,
-  # sem precisar clicar em nada primeiro.
-  Invoke-VerificarPerfil "Gamers" $itensGamers $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
-  Invoke-VerificarPerfil "Produtividade" $itensProdutividade $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
-  Invoke-VerificarPerfil "Equilíbrio" $itensEquilibrio $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
-  Invoke-VerificarPerfil "Avançado" $itensAvancado $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+  # sem precisar clicar em nada primeiro. $verificarAoAbrir=$false e usado
+  # so quando essa funcao roda de novo por causa de troca de tema
+  # (Reconstruir-Conteudo, em main.ps1) -- nesse caso a aba nem esta
+  # visivel na tela, entao rodar essa verificacao de novo seria so
+  # trabalho escondido em segundo plano sem ninguem olhando.
+  if ($verificarAoAbrir) {
+    Invoke-VerificarPerfil "Gamers" $itensGamers $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+    Invoke-VerificarPerfil "Produtividade" $itensProdutividade $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+    Invoke-VerificarPerfil "Equilíbrio" $itensEquilibrio $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+    Invoke-VerificarPerfil "Avançado" $itensAvancado $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackVerificarPerfil $setStatus $debugLog
+  }
 
   $sv = New-Object System.Windows.Controls.ScrollViewer
   $sv.Content = $raiz

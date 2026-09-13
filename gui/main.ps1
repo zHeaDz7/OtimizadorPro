@@ -345,7 +345,7 @@ $temaInicial = if ($script:modoAtual -eq "escuro") { $Global:TemaEscuro } else {
                 <TextBox x:Name="TxtBusca" Width="220" Padding="0,7" Text="Buscar (nome, categoria)..." Foreground="{DynamicResource BrushMuted}" Background="Transparent" BorderThickness="0"/>
               </StackPanel>
             </Border>
-            <Button x:Name="BtnAlternarTema" Grid.Column="2" Style="{StaticResource BtnGhost}" Width="38" Height="38" Padding="0" Margin="10,0,0,0" ToolTip="Alternar tema claro/escuro"/>
+            <Button x:Name="BtnAlternarTema" Grid.Column="2" Style="{StaticResource BtnGhost}" Width="38" Height="38" Padding="0" Margin="10,0,0,0"/>
           </Grid>
         </Border>
         <Border x:Name="AreaConteudo" Padding="24,20,24,20"/>
@@ -439,10 +439,47 @@ function ConvertTo-Brush([string]$hex) {
   return $brush
 }
 
+# Os dois icones (sol e lua) sao construidos UMA UNICA VEZ, sobrepostos
+# no mesmo Content do botao (um Grid com os dois), e so a Visibility
+# troca a cada clique -- nunca mais reconstruimos a arvore visual do
+# botao depois disso.
+#
+# Bug real encontrado com clique de MOUSE DE VERDADE (o harness de
+# teste automatizado, que dispara o evento Click direto via
+# AutomationPeer.Invoke() sem simular mouse nenhum, nunca reproduziu
+# isso): trocar o CONTEUDO de um botao enquanto o cursor ainda esta em
+# cima dele, no meio do proprio processamento do evento Click
+# (MouseLeftButtonDown captura o mouse -> MouseLeftButtonUp solta a
+# captura e decide se dispara Click conferindo se o mouse ainda esta
+# por cima do elemento), pode deixar o hit-testing desatualizado ate o
+# proximo MouseMove de verdade -- que pode nao acontecer entre dois
+# cliques rapidos no mesmo pixel, fazendo o SEGUNDO clique simplesmente
+# nao disparar Click nenhum (sem excecao, sem log -- bate exatamente
+# com "escuro -> claro funciona, mas nao volta pra escuro"). So
+# alternar Visibility de elementos que ja existem evita esse problema
+# pela raiz -- nao tem mais troca de arvore visual embaixo do cursor,
+# entao nao tem como o hit-testing ficar desatualizado.
+$script:iconeSol = New-Icone $window "sol" 17 $window.FindResource("BrushInk")
+$script:iconeLua = New-Icone $window "lua" 17 $window.FindResource("BrushInk")
+$painelIconeTema = New-Object System.Windows.Controls.Grid
+$painelIconeTema.Children.Add($script:iconeSol) | Out-Null
+$painelIconeTema.Children.Add($script:iconeLua) | Out-Null
+$btnAlternarTema.Content = $painelIconeTema
+
 function Atualizar-IconeTema {
-  $nomeIcone = if ($script:modoAtual -eq "escuro") { "sol" } else { "lua" }
-  $icone = New-Icone $window $nomeIcone 17 $window.FindResource("BrushInk")
-  $btnAlternarTema.Content = $icone
+  # Recolore os dois (Stroke/Fill sao fixados na hora que o icone foi
+  # construido, nao acompanham BrushInk sozinhos -- mesmo motivo do
+  # Set-IconeNavCor, reaproveitado aqui) e so alterna qual fica visivel.
+  $corInk = $window.FindResource("BrushInk")
+  Set-IconeNavCor $script:iconeSol $corInk
+  Set-IconeNavCor $script:iconeLua $corInk
+  if ($script:modoAtual -eq "escuro") {
+    $script:iconeSol.Visibility = "Visible"
+    $script:iconeLua.Visibility = "Collapsed"
+  } else {
+    $script:iconeSol.Visibility = "Collapsed"
+    $script:iconeLua.Visibility = "Visible"
+  }
 }
 
 # Troca TODAS as cores do app em tempo real (sidebar, botoes, checkbox,
@@ -456,6 +493,14 @@ function Atualizar-IconeTema {
 # abaixo) e o jeito confiavel de fazer ela pegar as cores novas tambem,
 # em vez de tentar re-colorir centenas de elementos ja existentes um por
 # um.
+#
+# A troca de cor em si (rapida, nao mexe em arvore visual nenhuma) roda
+# na hora. Reconstruir-Conteudo (pesado -- reconstroi 10 abas) e ADIADO
+# via Dispatcher.BeginInvoke em prioridade Background: assim o evento
+# Click termina de processar (mouse solto, captura liberada) igual a
+# qualquer clique normal, ANTES de qualquer reconstrucao pesada da
+# arvore visual comecar -- protecao extra contra qualquer instabilidade
+# de clique-durante-troca-de-UI, alem do que ja foi resolvido no item 1.
 function Set-Tema([string]$modo) {
   $valores = if ($modo -eq "escuro") { $Global:TemaEscuro } else { $Global:TemaClaro }
   foreach ($chave in $valores.Keys) {
@@ -480,8 +525,15 @@ function Set-Tema([string]$modo) {
   } catch {}
 
   if (Get-Command Reconstruir-Conteudo -ErrorAction SilentlyContinue) {
-    Reconstruir-Conteudo
-    Mostrar-Secao $script:chaveSecaoAtual
+    $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
+    $window.Dispatcher.BeginInvoke([action]{
+      try {
+        Reconstruir-Conteudo
+        Mostrar-Secao $script:chaveSecaoAtual
+      } catch {
+        "ERRO ao reconstruir conteudo apos troca de tema: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
+      }
+    }.GetNewClosure(), [System.Windows.Threading.DispatcherPriority]::Background) | Out-Null
   }
 }
 
@@ -656,6 +708,8 @@ function Rolar-ScrollViewersParaFim($pai) {
 # (perfil de GPU, apps instalados etc) continuam lendo normal, so o que
 # só existia na tela em memoria some.
 function Reconstruir-Conteudo {
+  param([bool]$primeiraCarga = $false)
+
   . (Join-Path $dir "modules\Tab-Ajustes.ps1")
   $conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
@@ -669,7 +723,7 @@ function Reconstruir-Conteudo {
   $conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
   . (Join-Path $dir "modules\Tab-Perfis.ps1")
-  $conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  $conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano} -verificarAoAbrir $primeiraCarga
 
   . (Join-Path $dir "modules\Tab-Internet.ps1")
   $conteudoInternet = Build-InternetTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
@@ -700,7 +754,7 @@ function Reconstruir-Conteudo {
   }
 }
 
-Reconstruir-Conteudo
+Reconstruir-Conteudo -primeiraCarga $true
 
 # --- Navegacao lateral -- troca o conteudo da area principal sem
 # reconstruir nada (cada Build-XTab ja rodou pelo menos uma vez; aqui so

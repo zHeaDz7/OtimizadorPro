@@ -78,6 +78,17 @@ $Global:CatalogoApps = @(
   @{ Nome = "Oracle VirtualBox"; Id = "Oracle.VirtualBox"; Cat = "Desenvolvimento"; Desc = "Roda outro sistema operacional dentro de uma janela (máquina virtual)." }
   @{ Nome = "Postman"; Id = "Postman.Postman"; Cat = "Desenvolvimento"; Desc = "Testar chamada de API -- ferramenta de programador." }
 
+  # --- Inteligência Artificial (so app com pacote OFICIAL confirmado no
+  # winget -- ChatGPT da OpenAI, por exemplo, nao tem pacote oficial,
+  # so clone nao-oficial de terceiro, entao fica de fora) ---
+  @{ Nome = "Claude"; Id = "Anthropic.Claude"; Cat = "Inteligência Artificial"; Desc = "App oficial da Anthropic pra conversar com a IA Claude no desktop -- ajuda com texto, código e análise de documento." }
+  @{ Nome = "Cursor"; Id = "Anysphere.Cursor"; Cat = "Inteligência Artificial"; Desc = "Editor de código com IA integrada, baseado no VS Code -- sugere, edita e explica código direto no editor." }
+  @{ Nome = "GitHub Copilot"; Id = "GitHub.CopilotApp"; Cat = "Inteligência Artificial"; Desc = "App oficial do GitHub pra rodar agente de IA em tarefa de código -- precisa de conta GitHub com Copilot ativo." }
+  @{ Nome = "Google Antigravity"; Id = "Google.Antigravity"; Cat = "Inteligência Artificial"; Desc = "Plataforma oficial do Google pra orquestrar agente de IA -- roda comando, edita arquivo e pesquisa na web, parecido com o Cursor." }
+  @{ Nome = "LM Studio"; Id = "ElementLabs.LMStudio"; Cat = "Inteligência Artificial"; Desc = "Roda modelo de IA (LLM) localmente no seu PC, sem depender da nuvem -- baixa modelo direto do Hugging Face." }
+  @{ Nome = "Ollama"; Id = "Ollama.Ollama"; Cat = "Inteligência Artificial"; Desc = "Roda modelo de IA (LLM) open source localmente -- usado como motor por vários outros apps de IA." }
+  @{ Nome = "Perplexity"; Id = "Perplexity.Perplexity"; Cat = "Inteligência Artificial"; Desc = "App oficial de busca com IA -- responde pergunta com fonte citada." }
+
   # --- Limpeza e Manutenção (programas oficiais/reconhecidos, sem
   # promessa vazia -- cada um so faz o que a descricao diz, nada de
   # "PC com 5000 erros" ou coisa do tipo) ---
