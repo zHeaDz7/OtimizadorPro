@@ -54,6 +54,18 @@ function Open-NvidiaPanelGUI {
   return $false
 }
 
+function Open-NvidiaAppGUI {
+  try {
+    foreach ($caminho in @(
+      "$env:ProgramFiles\NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe",
+      "${env:ProgramFiles(x86)}\NVIDIA Corporation\NVIDIA App\CEF\NVIDIA App.exe"
+    )) {
+      if ($caminho -and (Test-Path $caminho)) { Start-Process $caminho; return $true }
+    }
+  } catch {}
+  return $false
+}
+
 function Open-AmdPanelGUI {
   try {
     $pacote = Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "AMD|Radeon" } | Select-Object -First 1
@@ -314,14 +326,47 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
       "NVIDIA" {
         $btnPainel.Content = "Abrir Painel de Controle NVIDIA"
         $btnPainel.Style = $window.FindResource("BtnPrimary")
+        $btnPainel.Margin = "0,0,10,0"
         $btnPainel.Add_Click({
           if (-not (Open-NvidiaPanelGUI)) {
             $setStatus.Invoke("Não encontrei o Painel de Controle NVIDIA -- clique com o botão direito na área de trabalho e escolha 'Painel de Controle NVIDIA'.") | Out-Null
           }
         }.GetNewClosure())
-        $painelVendor.Children.Add($btnPainel) | Out-Null
-        $dica.Text = "Dentro do painel, pra desempenho máximo: 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'."
+
+        $btnNvidiaApp = New-Object System.Windows.Controls.Button
+        $btnNvidiaApp.Content = "Abrir NVIDIA App"
+        $btnNvidiaApp.Style = $window.FindResource("BtnGhost")
+        $btnNvidiaApp.Add_Click({
+          if (-not (Open-NvidiaAppGUI)) {
+            $setStatus.Invoke("Não encontrei o NVIDIA App instalado -- baixe na aba Instalar ou em nvidia.com/software/nvidia-app.") | Out-Null
+          }
+        }.GetNewClosure())
+
+        $barraPainelNvidia = New-Object System.Windows.Controls.StackPanel
+        $barraPainelNvidia.Orientation = "Horizontal"
+        $barraPainelNvidia.Children.Add($btnPainel) | Out-Null
+        $barraPainelNvidia.Children.Add($btnNvidiaApp) | Out-Null
+        $painelVendor.Children.Add($barraPainelNvidia) | Out-Null
+
+        $dica.Text = "Painel de Controle NVIDIA (clássico): 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'. No NVIDIA App (mais novo), a mesma coisa fica em Elemento Gráfico > Configurações Globais -- veja o checklist completo abaixo."
         $painelVendor.Children.Add($dica) | Out-Null
+
+        try {
+          & (Join-Path $scriptsDir "_driver_guide.ps1") 2>&1 | Out-Null
+          $caminhoGuiaGpu = Join-Path (Split-Path $scriptsDir -Parent) "Guia-Placa-de-Video.txt"
+          if (Test-Path $caminhoGuiaGpu) {
+            $txtChecklistNvidia = New-Object System.Windows.Controls.TextBlock
+            $txtChecklistNvidia.Text = Get-Content -LiteralPath $caminhoGuiaGpu -Raw
+            $txtChecklistNvidia.FontFamily = "Consolas"
+            $txtChecklistNvidia.FontSize = 11.5
+            $txtChecklistNvidia.TextWrapping = "Wrap"
+            $txtChecklistNvidia.Foreground = $window.FindResource("BrushMuted")
+            $txtChecklistNvidia.Margin = "0,12,0,0"
+            $painelVendor.Children.Add($txtChecklistNvidia) | Out-Null
+          }
+        } catch {
+          "ERRO ao gerar checklist NVIDIA App em Atualizar-InfoGpuGUI: $_" | Out-File $debugLog -Append
+        }
 
         Add-SecaoVerificarDriverGUI $window $painelVendor $scriptsDir $emSegundoPlano $setStatus $debugLog $principal "NVIDIA" "_nvidia_driver_lookup.ps1" "BtnGpuVerificarDriverNvidia" "https://www.nvidia.com/Download/index.aspx" "Na página da NVIDIA, selecione: Tipo = GeForce, Série = GeForce RTX 30 Series, Produto = $($principal.Name -replace '^NVIDIA\s+',''), Sistema = Windows 11 -- e marque 'mostrar todos os drivers' pra ver o histórico de versões."
       }

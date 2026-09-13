@@ -224,6 +224,7 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
             <RadioButton x:Name="NavInicializacao" Content="Inicialização" Style="{StaticResource NavItem}"/>
             <RadioButton x:Name="NavGPU" Content="Placa de Vídeo" Style="{StaticResource NavItem}"/>
             <RadioButton x:Name="NavPerfis" Content="Perfis" Style="{StaticResource NavItem}"/>
+            <RadioButton x:Name="NavInternet" Content="Internet" Style="{StaticResource NavItem}"/>
           </StackPanel>
         </DockPanel>
       </Border>
@@ -372,6 +373,35 @@ function Find-VisualChildByName($pai, [string]$nome) {
   return $null
 }
 
+# So usada em -TesteRolarAteTexto, pra achar um TextBlock/CheckBox pelo
+# texto visivel e trazer ele pra vista antes da foto -- util pra
+# verificar item especifico numa lista longa sem depender de scroll cego.
+function Find-VisualChildByText($pai, [string]$texto) {
+  $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($pai)
+  for ($i = 0; $i -lt $n; $i++) {
+    $filho = [System.Windows.Media.VisualTreeHelper]::GetChild($pai, $i)
+    $conteudo = $null
+    if ($filho -is [System.Windows.Controls.TextBlock]) { $conteudo = $filho.Text }
+    elseif ($filho -is [System.Windows.Controls.ContentControl]) { $conteudo = "$($filho.Content)" }
+    if ($conteudo -and $conteudo -match [regex]::Escape($texto)) { return $filho }
+    $achado = Find-VisualChildByText $filho $texto
+    if ($achado) { return $achado }
+  }
+  return $null
+}
+
+# So usada em -TesteScreenshot, pra rolar todo ScrollViewer visivel ate o
+# fim antes de tirar a foto -- senao o conteudo que fica depois do botao
+# clicado (ex: resultado de um card no fim da aba) sai cortado da imagem.
+function Rolar-ScrollViewersParaFim($pai) {
+  $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($pai)
+  for ($i = 0; $i -lt $n; $i++) {
+    $filho = [System.Windows.Media.VisualTreeHelper]::GetChild($pai, $i)
+    if ($filho -is [System.Windows.Controls.ScrollViewer]) { $filho.ScrollToBottom() }
+    Rolar-ScrollViewersParaFim $filho
+  }
+}
+
 . (Join-Path $dir "modules\Tab-Ajustes.ps1")
 $conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
@@ -386,6 +416,9 @@ $conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus $
 
 . (Join-Path $dir "modules\Tab-Perfis.ps1")
 $conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+
+. (Join-Path $dir "modules\Tab-Internet.ps1")
+$conteudoInternet = Build-InternetTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
 . (Join-Path $dir "modules\Tab-Instalar.ps1")
 $conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
@@ -417,6 +450,7 @@ $secoes = [ordered]@{
   "TabInicializacao" = @{ Titulo = "Inicialização"; Elemento = $conteudoInicializacao; NomeNav = "NavInicializacao" }
   "TabGPU"         = @{ Titulo = "Placa de Vídeo"; Elemento = $conteudoGPU; NomeNav = "NavGPU" }
   "TabPerfis"      = @{ Titulo = "Perfis"; Elemento = $conteudoPerfis; NomeNav = "NavPerfis" }
+  "TabInternet"    = @{ Titulo = "Internet"; Elemento = $conteudoInternet; NomeNav = "NavInternet" }
 }
 
 function Mostrar-Secao([string]$chave) {
@@ -455,6 +489,9 @@ $botoesTeste = @()
 if ($idxBtn -ge 0) {
   for ($k = $idxBtn + 1; $k -lt $args.Count -and $args[$k] -notmatch "^-"; $k++) { $botoesTeste += $args[$k] }
 }
+
+$idxRolarTexto = $args.IndexOf("-TesteRolarAteTexto")
+$textoRolarTeste = if ($idxRolarTexto -ge 0 -and $args.Count -gt ($idxRolarTexto + 1)) { $args[$idxRolarTexto + 1] } else { $null }
 
 if ($args -contains "-TesteScreenshot") {
   # Renderiza SO a arvore visual desta janela pra um bitmap em memoria --
@@ -499,6 +536,15 @@ if ($args -contains "-TesteScreenshot") {
         "[$nomeBtnTeste] ERRO: $_" | Out-File $debugLog -Append
         "$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       }
+    }
+    if ($botoesTeste.Count -gt 0) {
+      Rolar-ScrollViewersParaFim $window
+      $window.UpdateLayout()
+    }
+    if ($textoRolarTeste) {
+      $alvo = Find-VisualChildByText $window $textoRolarTeste
+      "[TesteRolarAteTexto '$textoRolarTeste'] achado: $($null -ne $alvo)" | Out-File $debugLog -Append
+      if ($alvo) { $alvo.BringIntoView(); $window.UpdateLayout() }
     }
     $largura = [int]$window.ActualWidth
     $altura = [int]$window.ActualHeight

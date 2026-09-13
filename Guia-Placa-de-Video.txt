@@ -1,18 +1,41 @@
 GUIA DE CONFIGURACAO -- NVIDIA GeForce RTX 3050
 ================================================
 
-Painel de Controle NVIDIA (botao direito na Area de Trabalho > Painel de
-Controle NVIDIA) > Gerenciar Configuracoes 3D > aba Configuracoes do
-Programa:
+NVIDIA App (o app novo, substituiu o GeForce Experience) > icone de
+Elemento Grafico > Configuracoes Globais. Valores pra quem quer o maximo
+de desempenho possivel:
 
   Modo de gerenciamento de energia .......... Preferencia por desempenho maximo
   Modo de latencia baixa ..................... Ultra
   Filtragem de textura - Qualidade ........... Alto desempenho
   Filtragem de textura - otimizacao trilinear  Ligado
-  Sincronizacao vertical (VSync) ............. Desligado
-  Antialiasing - FXAA ........................ Desligado
-  Buffering triplo ............................ Desligado
-  Taxa Maxima de Quadros ...................... Desligado (deixe o limitador do jogo cuidar disso)
-  Tamanho do cache do criador de sombras ..... Ilimitado
+  Tamanho do cache do criador de sombras ..... Sem limite
+  Atribuicao de GPU (notebook com 2 placas) .. A sua placa NVIDIA dedicada
 
-NVIDIA App > aba do jogo > Otimizar: puxe pra "Desempenho".
+Esses itens abaixo tem TROCA envolvida -- nao e "sempre desligado e
+melhor", depende do seu monitor e do jogo:
+
+  Sincronizacao vertical (VSync) ............. Desligado da MAIS FPS, mas pode
+    dar tearing (linha cortando a tela). Se seu monitor tem G-Sync/FreeSync,
+    deixe o VSync do jogo desligado e o G-Sync/FreeSync cuida disso sem
+    perder desempenho. Sem G-Sync/FreeSync, so ligue se o tearing incomodar.
+
+  Taxa Maxima de Quadros ...................... Deixar sem limite maximiza o
+    numero de FPS, mas gera mais calor/barulho de cooler sem ganho real
+    acima da taxa de atualizacao do seu monitor. Limitar uns 3 quadros
+    abaixo da taxa do monitor (ex: 141 num monitor de 144Hz) costuma dar
+    MENOS latencia e menos calor, quase sem perder sensacao de fluidez.
+
+  RTX Dynamic Vibrance ........................ E so uma preferencia visual
+    (cores mais vivas), nao mexe no desempenho -- ligue se gostar do visual.
+
+  Substituicao global do DLSS ................. So faz diferenca em jogos
+    que usam DLSS. Forcar o preset "Qualidade" da mais nitidez, "Desempenho"
+    da mais FPS -- teste qual fica melhor pro seu jogo, nao existe resposta
+    unica aqui.
+
+Aviso sobre gerenciamento de energia: deixar em "desempenho maximo" faz a
+placa manter os clocks altos o tempo todo, mesmo fora de jogo -- em
+notebook isso reduz a bateria e aumenta o barulho do cooler em repouso.
+Se voce usa o notebook fora da tomada com frequencia, considere deixar em
+"Otima energia" e so trocar pra "desempenho maximo" quando for jogar.

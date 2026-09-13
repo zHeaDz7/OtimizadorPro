@@ -56,6 +56,8 @@ $Global:CatalogoApps = @(
   @{ Nome = "HWiNFO"; Id = "REALiX.HWiNFO"; Cat = "Ferramentas e Sistema"; Desc = "Mostra informação detalhada de todo o hardware do PC." }
   @{ Nome = "CrystalDiskInfo"; Id = "CrystalDewWorld.CrystalDiskInfo"; Cat = "Ferramentas e Sistema"; Desc = "Mostra a saúde do seu SSD/HD." }
   @{ Nome = "MSI Afterburner"; Id = "Guru3D.Afterburner"; Cat = "Ferramentas e Sistema"; Desc = "Overclock e monitoramento da placa de vídeo." }
+  @{ Nome = "NVIDIA App"; Id = "XP8CLZL93F5Z4P"; Cat = "Ferramentas e Sistema"; Desc = "App oficial da NVIDIA (substitui o GeForce Experience) -- atualiza driver, ajusta configurações gráficas globais e otimiza jogo por jogo." }
+  @{ Nome = "NVIDIA FrameView"; Id = "Nvidia.FrameView"; Cat = "Ferramentas e Sistema"; Desc = "Ferramenta oficial e gratuita da NVIDIA pra medir FPS/frame time de verdade -- útil pra comparar antes/depois de mudar uma configuração." }
   @{ Nome = "Notepad++"; Id = "Notepad++.Notepad++"; Cat = "Ferramentas e Sistema"; Desc = "Editor de texto avançado, o mais usado pra programar." }
   @{ Nome = "Everything (busca de arquivo)"; Id = "voidtools.Everything"; Cat = "Ferramentas e Sistema"; Desc = "Busca arquivo no PC instantaneamente." }
   @{ Nome = "TeamViewer"; Id = "TeamViewer.TeamViewer"; Cat = "Ferramentas e Sistema"; Desc = "Acessar/controlar outro PC à distância." }
