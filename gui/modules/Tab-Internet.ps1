@@ -321,7 +321,7 @@ function Build-InternetTab {
       & (Join-Path $scriptsDir "_guia_rede.ps1") 2>&1 | Out-Null
       $caminhoGuia = Join-Path (Split-Path $scriptsDir -Parent) "Guia-Rede.txt"
       if (Test-Path $caminhoGuia) {
-        $txtRoteador.Text = Get-Content -LiteralPath $caminhoGuia -Raw
+        $txtRoteador.Text = Get-Content -LiteralPath $caminhoGuia -Raw -Encoding UTF8
         $txtRoteador.Visibility = "Visible"
         $setStatus.Invoke("Guia gerado.") | Out-Null
       } else {

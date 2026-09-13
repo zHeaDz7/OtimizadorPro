@@ -356,7 +356,7 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
           $caminhoGuiaGpu = Join-Path (Split-Path $scriptsDir -Parent) "Guia-Placa-de-Video.txt"
           if (Test-Path $caminhoGuiaGpu) {
             $txtChecklistNvidia = New-Object System.Windows.Controls.TextBlock
-            $txtChecklistNvidia.Text = Get-Content -LiteralPath $caminhoGuiaGpu -Raw
+            $txtChecklistNvidia.Text = Get-Content -LiteralPath $caminhoGuiaGpu -Raw -Encoding UTF8
             $txtChecklistNvidia.FontFamily = "Consolas"
             $txtChecklistNvidia.FontSize = 11.5
             $txtChecklistNvidia.TextWrapping = "Wrap"

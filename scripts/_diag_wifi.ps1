@@ -1,5 +1,5 @@
-# So DIAGNOSTICA -- se voce estiver em Wi-Fi, mostra canal, banda
-# (2.4GHz/5GHz) e forca de sinal. Ajuda a saber se vale trocar de canal
+﻿# Só DIAGNOSTICA -- se você estiver em Wi-Fi, mostra canal, banda
+# (2.4GHz/5GHz) e força de sinal. Ajuda a saber se vale trocar de canal
 # ou aproximar do roteador.
 $ErrorActionPreference = "SilentlyContinue"
 
@@ -7,7 +7,7 @@ $adapter = Get-NetAdapter -Physical | Where-Object { $_.Status -eq "Up" -and $_.
 Write-Output "=== WI-FI ==="
 Write-Output ""
 if (-not $adapter) {
-  Write-Output "Voce nao esta conectado por Wi-Fi agora (esta em cabo, ou sem rede) -- nada pra diagnosticar aqui."
+  Write-Output "Você não está conectado por Wi-Fi agora (está em cabo, ou sem rede) -- nada pra diagnosticar aqui."
   return
 }
 
@@ -23,14 +23,14 @@ if ($canal) {
   $canalNum = ($canal -replace '.*:\s*', '').Trim()
   Write-Output "  Canal: $canalNum"
   if ($canalNum -match "^\d+$" -and [int]$canalNum -le 14) {
-    Write-Output "  AVISO: voce esta na banda de 2.4GHz (canal $canalNum) -- mais alcance,"
-    Write-Output "  mas mais sujeita a interferencia (micro-ondas, outros roteadores). Se o"
-    Write-Output "  seu roteador e o adaptador suportam 5GHz e voce nao esta longe demais,"
-    Write-Output "  mudar pra 5GHz costuma dar ping mais estavel."
+    Write-Output "  AVISO: você está na banda de 2.4GHz (canal $canalNum) -- mais alcance,"
+    Write-Output "  mas mais sujeita a interferência (micro-ondas, outros roteadores). Se o"
+    Write-Output "  seu roteador e o adaptador suportam 5GHz e você não está longe demais,"
+    Write-Output "  mudar pra 5GHz costuma dar ping mais estável."
   }
 }
 if ($banda) { Write-Output "  Tipo: $($banda -replace '.*:\s*', '')" }
 
 Write-Output ""
-Write-Output "Lembrete: cabo de rede sempre bate Wi-Fi em latencia e estabilidade,"
+Write-Output "Lembrete: cabo de rede sempre bate Wi-Fi em latência e estabilidade,"
 Write-Output "mesmo com sinal Wi-Fi perfeito."

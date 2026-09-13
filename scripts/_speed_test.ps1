@@ -1,15 +1,15 @@
 ﻿# Mede a velocidade REAL de download/upload usando o mesmo endpoint que
-# o teste de velocidade publico da Cloudflare usa no navegador
+# o teste de velocidade público da Cloudflare usa no navegador
 # (speed.cloudflare.com) -- baixa/envia bytes de verdade e cronometra,
-# nao inventa numero. So mede -- nao muda nenhuma configuracao.
+# não inventa número. Só mede -- não muda nenhuma configuração.
 #
-# IMPORTANTE: $ProgressPreference = "SilentlyContinue" e OBRIGATORIO
+# IMPORTANTE: $ProgressPreference = "SilentlyContinue" é OBRIGATÓRIO
 # aqui -- sem isso, Invoke-WebRequest fica MUITO mais lento por causa do
-# jeito que ele desenha a barra de progresso a cada pedaco baixado
-# (confirmado testando ao vivo nessa maquina: a MESMA rede mediu "5
-# Mbps" sem isso e "210+ Mbps" com isso -- e um numero real, so que sem
+# jeito que ele desenha a barra de progresso a cada pedaço baixado
+# (confirmado testando ao vivo nessa máquina: a MESMA rede mediu "5
+# Mbps" sem isso e "210+ Mbps" com isso -- é um número real, só que sem
 # essa linha o script mede a velocidade de desenhar a barra de
-# progresso do PowerShell, nao a internet de verdade).
+# progresso do PowerShell, não a internet de verdade).
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -33,5 +33,5 @@ try {
   Write-Output "Download: $mbpsDown Mbps"
   Write-Output "Upload: $mbpsUp Mbps"
 } catch {
-  Write-Output "Erro: nao consegui medir a velocidade agora ($_)"
+  Write-Output "Erro: não consegui medir a velocidade agora ($_)"
 }
