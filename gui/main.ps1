@@ -39,40 +39,112 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 . (Join-Path $dir "modules\_Icons.ps1")
 
 # ============================================================
-# XAML -- janela principal + tema claro neutro (fundo bege claro,
-# cards brancos), com a sidebar mantendo um grafite escuro quente e
-# o acento ambar da marca (mesma cor de sempre, so que agora so
-# aparece como destaque, nao como fundo)
+# Tema claro/escuro -- os dois conjuntos de cor completos. A sidebar
+# fica sempre com um tom quente/escuro nos dois modos (decisao de
+# design: contraste forte contra o conteudo, ver commit do redesign
+# visual) -- so o CONTEUDO troca de claro pra escuro de verdade.
+# BrushAccent (ambar da marca) e BrushOnAccent (texto em cima do
+# ambar) ficam iguais nos dois -- e a cor de identidade do produto,
+# nao muda com o tema.
+# ============================================================
+$Global:TemaClaro = [ordered]@{
+  BrushBg              = "#F2EFE9"
+  BrushSurface         = "#FFFFFF"
+  BrushSurface2        = "#EAE5DC"
+  BrushBorder          = "#DEDAD0"
+  BrushInk             = "#26221C"
+  BrushMuted           = "#736C60"
+  BrushAccent          = "#E7A94C"
+  BrushAccentInk       = "#8A5714"
+  BrushAccentSoft      = "#F7E6C4"
+  BrushGood            = "#2F9160"
+  BrushBad             = "#C24E3A"
+  BrushOnAccent        = "#241A0D"
+  BrushSidebarBg       = "#211B14"
+  BrushSidebarInk      = "#F3EEE6"
+  BrushSidebarMuted    = "#9A907C"
+  BrushSidebarHoverBg  = "#2D2620"
+}
+# Mesma paleta ambar/grafite que o app usava antes do redesign visual
+# claro (recuperada do historico do git) -- reaproveitada aqui como o
+# "modo escuro" oficial, ja testada e aprovada antes.
+$Global:TemaEscuro = [ordered]@{
+  BrushBg              = "#14181A"
+  BrushSurface         = "#1B2023"
+  BrushSurface2        = "#21272A"
+  BrushBorder          = "#313A3E"
+  BrushInk             = "#EDEFEF"
+  BrushMuted           = "#93A0A4"
+  BrushAccent          = "#E7A94C"
+  BrushAccentInk       = "#FFD699"
+  BrushAccentSoft      = "#3A2F1A"
+  BrushGood            = "#7FD19F"
+  BrushBad             = "#E08B73"
+  BrushOnAccent        = "#1B1200"
+  BrushSidebarBg       = "#1B2023"
+  BrushSidebarInk      = "#EDEFEF"
+  BrushSidebarMuted    = "#93A0A4"
+  BrushSidebarHoverBg  = "#21272A"
+}
+
+# Preferencia salva fica em Logs\tema.txt (pasta que ja existe e ja e
+# usada por outros scripts do projeto pra dado local que nao vai pro
+# git -- ver .gitignore). Se nao existir ou der erro, cai no claro
+# (comportamento de sempre) -- nunca trava a abertura do app por causa
+# disso.
+$caminhoPrefTema = Join-Path (Split-Path $dir -Parent) "Logs\tema.txt"
+$script:modoAtual = "claro"
+try {
+  if (Test-Path $caminhoPrefTema) {
+    $lido = (Get-Content -LiteralPath $caminhoPrefTema -Raw -Encoding UTF8).Trim()
+    if ($lido -eq "escuro") { $script:modoAtual = "escuro" }
+  }
+} catch {}
+$temaInicial = if ($script:modoAtual -eq "escuro") { $Global:TemaEscuro } else { $Global:TemaClaro }
+
+# ============================================================
+# XAML -- janela principal + tema claro/escuro (ver hashtables acima).
+# Os valores de cor abaixo vem interpolados de $temaInicial (a
+# preferencia salva, ou claro por padrao) -- so pra pintar a janela
+# certa desde o primeiro frame, sem flash de uma cor errada. Depois
+# disso, toda troca de tema em tempo real passa por Set-Tema (mais
+# abaixo), que troca os brushes no dicionario de recursos -- por isso
+# todo StaticResource de cor abaixo virou DynamicResource: StaticResource
+# resolve uma vez so e nunca mais muda, DynamicResource re-resolve
+# sozinho sempre que o valor no dicionario troca (confirmado testando
+# isolado: SolidColorBrush vindo de XAML fica read-only/"frozen" depois
+# de carregado, entao mutar a cor destrava um erro -- trocar o brush
+# inteiro no dicionario via DynamicResource e o jeito que funciona).
 # ============================================================
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Otimizador Pro" Height="820" Width="1360" MinHeight="640" MinWidth="1100"
-        WindowStartupLocation="CenterScreen" Background="#F2EFE9" FontFamily="Segoe UI">
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource BrushBg}" FontFamily="Segoe UI">
   <Window.Resources>
-    <SolidColorBrush x:Key="BrushBg" Color="#F2EFE9"/>
-    <SolidColorBrush x:Key="BrushSurface" Color="#FFFFFF"/>
-    <SolidColorBrush x:Key="BrushSurface2" Color="#EAE5DC"/>
-    <SolidColorBrush x:Key="BrushBorder" Color="#DEDAD0"/>
-    <SolidColorBrush x:Key="BrushInk" Color="#26221C"/>
-    <SolidColorBrush x:Key="BrushMuted" Color="#736C60"/>
-    <SolidColorBrush x:Key="BrushAccent" Color="#E7A94C"/>
-    <SolidColorBrush x:Key="BrushAccentInk" Color="#8A5714"/>
-    <SolidColorBrush x:Key="BrushAccentSoft" Color="#F7E6C4"/>
-    <SolidColorBrush x:Key="BrushGood" Color="#2F9160"/>
-    <SolidColorBrush x:Key="BrushBad" Color="#C24E3A"/>
-    <SolidColorBrush x:Key="BrushOnAccent" Color="#241A0D"/>
+    <SolidColorBrush x:Key="BrushBg" Color="$($temaInicial.BrushBg)"/>
+    <SolidColorBrush x:Key="BrushSurface" Color="$($temaInicial.BrushSurface)"/>
+    <SolidColorBrush x:Key="BrushSurface2" Color="$($temaInicial.BrushSurface2)"/>
+    <SolidColorBrush x:Key="BrushBorder" Color="$($temaInicial.BrushBorder)"/>
+    <SolidColorBrush x:Key="BrushInk" Color="$($temaInicial.BrushInk)"/>
+    <SolidColorBrush x:Key="BrushMuted" Color="$($temaInicial.BrushMuted)"/>
+    <SolidColorBrush x:Key="BrushAccent" Color="$($temaInicial.BrushAccent)"/>
+    <SolidColorBrush x:Key="BrushAccentInk" Color="$($temaInicial.BrushAccentInk)"/>
+    <SolidColorBrush x:Key="BrushAccentSoft" Color="$($temaInicial.BrushAccentSoft)"/>
+    <SolidColorBrush x:Key="BrushGood" Color="$($temaInicial.BrushGood)"/>
+    <SolidColorBrush x:Key="BrushBad" Color="$($temaInicial.BrushBad)"/>
+    <SolidColorBrush x:Key="BrushOnAccent" Color="$($temaInicial.BrushOnAccent)"/>
 
-    <!-- Sidebar continua escura/quente de proposito, contraste com
-         o resto do app, que agora e claro (ver Contexto do plano) -->
-    <SolidColorBrush x:Key="BrushSidebarBg" Color="#211B14"/>
-    <SolidColorBrush x:Key="BrushSidebarInk" Color="#F3EEE6"/>
-    <SolidColorBrush x:Key="BrushSidebarMuted" Color="#9A907C"/>
-    <SolidColorBrush x:Key="BrushSidebarHoverBg" Color="#2D2620"/>
+    <!-- Sidebar continua escura/quente de proposito nos dois temas,
+         contraste com o conteudo (que troca de claro pra escuro) -->
+    <SolidColorBrush x:Key="BrushSidebarBg" Color="$($temaInicial.BrushSidebarBg)"/>
+    <SolidColorBrush x:Key="BrushSidebarInk" Color="$($temaInicial.BrushSidebarInk)"/>
+    <SolidColorBrush x:Key="BrushSidebarMuted" Color="$($temaInicial.BrushSidebarMuted)"/>
+    <SolidColorBrush x:Key="BrushSidebarHoverBg" Color="$($temaInicial.BrushSidebarHoverBg)"/>
 
     <Style x:Key="NavItem" TargetType="RadioButton">
       <Setter Property="GroupName" Value="Navegacao"/>
-      <Setter Property="Foreground" Value="{StaticResource BrushSidebarMuted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushSidebarMuted}"/>
       <Setter Property="FontSize" Value="13.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,10"/>
@@ -91,12 +163,12 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
                    WPF, entao IsChecked (pill ambar) precisa ficar depois,
                    senao passar o mouse no item ativo apagaria o pill. -->
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushSidebarHoverBg}"/>
-                <Setter Property="Foreground" Value="{StaticResource BrushSidebarInk}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushSidebarHoverBg}"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushSidebarInk}"/>
               </Trigger>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrushAccent}"/>
-                <Setter Property="Foreground" Value="{StaticResource BrushOnAccent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrushAccent}"/>
+                <Setter Property="Foreground" Value="{DynamicResource BrushOnAccent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -105,8 +177,8 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
     </Style>
 
     <Style x:Key="BtnPrimary" TargetType="Button">
-      <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-      <Setter Property="Foreground" Value="{StaticResource BrushOnAccent}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushAccent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushOnAccent}"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="16,9"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -131,17 +203,17 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
     </Style>
 
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
-      <Setter Property="Background" Value="{StaticResource BrushSurface2}"/>
-      <Setter Property="Foreground" Value="{StaticResource BrushInk}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushSurface2}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushInk}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border Background="{TemplateBinding Background}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{StaticResource BrushBorder}"/>
+                <Setter Property="Background" Value="{DynamicResource BrushBorder}"/>
               </Trigger>
               <Trigger Property="IsEnabled" Value="False">
                 <Setter Property="Opacity" Value="0.4"/>
@@ -153,22 +225,22 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
     </Style>
 
     <Style TargetType="CheckBox">
-      <Setter Property="Foreground" Value="{StaticResource BrushInk}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushInk}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Margin" Value="0,3"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
             <StackPanel Orientation="Horizontal">
-              <Border x:Name="Box" Width="16" Height="16" CornerRadius="3" BorderThickness="1.4" BorderBrush="{StaticResource BrushMuted}" Background="Transparent" VerticalAlignment="Center">
-                <Path x:Name="Check" Data="M2,7 L6,11 L14,2" Stroke="{StaticResource BrushOnAccent}" StrokeThickness="2" Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+              <Border x:Name="Box" Width="16" Height="16" CornerRadius="3" BorderThickness="1.4" BorderBrush="{DynamicResource BrushMuted}" Background="Transparent" VerticalAlignment="Center">
+                <Path x:Name="Check" Data="M2,7 L6,11 L14,2" Stroke="{DynamicResource BrushOnAccent}" StrokeThickness="2" Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
               </Border>
               <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource BrushAccent}"/>
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                <Setter TargetName="Box" Property="Background" Value="{DynamicResource BrushAccent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
                 <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
               </Trigger>
             </ControlTemplate.Triggers>
@@ -181,16 +253,16 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ToggleButton">
-            <Border x:Name="Track" Width="38" Height="20" CornerRadius="10" Background="{StaticResource BrushSurface2}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1">
-              <Border x:Name="Knob" Width="14" Height="14" CornerRadius="7" Background="{StaticResource BrushMuted}" HorizontalAlignment="Left" Margin="2,0,0,0"/>
+            <Border x:Name="Track" Width="38" Height="20" CornerRadius="10" Background="{DynamicResource BrushSurface2}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1">
+              <Border x:Name="Knob" Width="14" Height="14" CornerRadius="7" Background="{DynamicResource BrushMuted}" HorizontalAlignment="Left" Margin="2,0,0,0"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Track" Property="Background" Value="{StaticResource BrushAccent}"/>
-                <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                <Setter TargetName="Track" Property="Background" Value="{DynamicResource BrushAccent}"/>
+                <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource BrushAccent}"/>
                 <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
                 <Setter TargetName="Knob" Property="Margin" Value="0,0,2,0"/>
-                <Setter TargetName="Knob" Property="Background" Value="{StaticResource BrushOnAccent}"/>
+                <Setter TargetName="Knob" Property="Background" Value="{DynamicResource BrushOnAccent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -202,14 +274,14 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
       <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
     </Style>
     <Style TargetType="TextBox">
-      <Setter Property="Background" Value="{StaticResource BrushSurface2}"/>
-      <Setter Property="Foreground" Value="{StaticResource BrushInk}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
+      <Setter Property="Background" Value="{DynamicResource BrushSurface2}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushInk}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BrushBorder}"/>
       <Setter Property="Padding" Value="10,7"/>
-      <Setter Property="CaretBrush" Value="{StaticResource BrushInk}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource BrushInk}"/>
     </Style>
     <Style x:Key="Rotulo" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="{StaticResource BrushMuted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource BrushMuted}"/>
       <Setter Property="FontSize" Value="11.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -217,8 +289,8 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
   <DockPanel LastChildFill="True">
     <!-- Rodape de status (sempre visivel, largura total) -->
-    <Border DockPanel.Dock="Bottom" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="16,8">
-      <TextBlock x:Name="TxtStatus" Text="Pronto." Foreground="{StaticResource BrushMuted}" FontSize="12"/>
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource BrushSurface}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,1,0,0" Padding="16,8">
+      <TextBlock x:Name="TxtStatus" Text="Pronto." Foreground="{DynamicResource BrushMuted}" FontSize="12"/>
     </Border>
 
     <Grid>
@@ -228,11 +300,11 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
       </Grid.ColumnDefinitions>
 
       <!-- Sidebar de navegacao -->
-      <Border Grid.Column="0" Background="{StaticResource BrushSidebarBg}">
+      <Border Grid.Column="0" Background="{DynamicResource BrushSidebarBg}">
         <DockPanel LastChildFill="True">
           <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="20,22,20,26">
-            <Ellipse Width="9" Height="9" Fill="{StaticResource BrushAccent}" Margin="0,0,10,0"/>
-            <TextBlock Text="OTIMIZADOR PRO" Foreground="{StaticResource BrushSidebarInk}" FontWeight="Bold" FontSize="13.5"/>
+            <Ellipse Width="9" Height="9" Fill="{DynamicResource BrushAccent}" Margin="0,0,10,0"/>
+            <TextBlock Text="OTIMIZADOR PRO" Foreground="{DynamicResource BrushSidebarInk}" FontWeight="Bold" FontSize="13.5"/>
           </StackPanel>
           <StackPanel Margin="10,0,10,10">
             <!-- Conteudo (icone+rotulo) de cada item e montado em codigo
@@ -254,24 +326,26 @@ $scriptsDir = Join-Path (Split-Path $dir -Parent) "scripts"
 
       <!-- Area de conteudo -->
       <DockPanel Grid.Column="1" LastChildFill="True">
-        <Border DockPanel.Dock="Top" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,0,0,1" Padding="24,16">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource BrushSurface}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="0,0,0,1" Padding="24,16">
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="TxtTituloSecao" Text="Instalar" Foreground="{StaticResource BrushInk}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
-            <Border Grid.Column="1" Background="{StaticResource BrushSurface2}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="10,0" Width="280">
+            <TextBlock x:Name="TxtTituloSecao" Text="Instalar" Foreground="{DynamicResource BrushInk}" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
+            <Border Grid.Column="1" Background="{DynamicResource BrushSurface2}" BorderBrush="{DynamicResource BrushBorder}" BorderThickness="1" CornerRadius="8" Padding="10,0" Width="280">
               <StackPanel Orientation="Horizontal">
                 <Viewbox Width="14" Height="14" Margin="0,0,8,0">
                   <Canvas Width="24" Height="24">
-                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="12" Height="12" Stroke="{StaticResource BrushMuted}" StrokeThickness="1.8"/>
-                    <Line X1="14.5" Y1="14.5" X2="20" Y2="20" Stroke="{StaticResource BrushMuted}" StrokeThickness="1.8" StrokeStartLineCap="Round"/>
+                    <Ellipse Canvas.Left="4" Canvas.Top="4" Width="12" Height="12" Stroke="{DynamicResource BrushMuted}" StrokeThickness="1.8"/>
+                    <Line X1="14.5" Y1="14.5" X2="20" Y2="20" Stroke="{DynamicResource BrushMuted}" StrokeThickness="1.8" StrokeStartLineCap="Round"/>
                   </Canvas>
                 </Viewbox>
-                <TextBox x:Name="TxtBusca" Width="220" Padding="0,7" Text="Buscar (nome, categoria)..." Foreground="{StaticResource BrushMuted}" Background="Transparent" BorderThickness="0"/>
+                <TextBox x:Name="TxtBusca" Width="220" Padding="0,7" Text="Buscar (nome, categoria)..." Foreground="{DynamicResource BrushMuted}" Background="Transparent" BorderThickness="0"/>
               </StackPanel>
             </Border>
+            <Button x:Name="BtnAlternarTema" Grid.Column="2" Style="{StaticResource BtnGhost}" Width="38" Height="38" Padding="0" Margin="10,0,0,0" ToolTip="Alternar tema claro/escuro"/>
           </Grid>
         </Border>
         <Border x:Name="AreaConteudo" Padding="24,20,24,20"/>
@@ -350,6 +424,78 @@ foreach ($nomeNav in $Global:IconesNav.Keys) {
   $conteudoNav.Children.Add($txtNav) | Out-Null
   $btnNav.Content = $conteudoNav
 }
+
+# --- Alternar tema claro/escuro ---------------------------------------
+# O botao mostra o icone do modo que ele VAI ATIVAR se clicado (lua =
+# "clique pra ir pro escuro", sol = "clique pra ir pro claro") -- padrao
+# comum de toggle. O icone tambem precisa ser reconstruido a cada troca
+# (mesmo motivo do Set-IconeNavCor: Shape.Stroke/Fill nao acompanha
+# Foreground sozinho).
+$btnAlternarTema = $window.FindName("BtnAlternarTema")
+
+function ConvertTo-Brush([string]$hex) {
+  $brush = New-Object System.Windows.Media.SolidColorBrush
+  $brush.Color = [System.Windows.Media.ColorConverter]::ConvertFromString($hex)
+  return $brush
+}
+
+function Atualizar-IconeTema {
+  $nomeIcone = if ($script:modoAtual -eq "escuro") { "sol" } else { "lua" }
+  $icone = New-Icone $window $nomeIcone 17 $window.FindResource("BrushInk")
+  $btnAlternarTema.Content = $icone
+}
+
+# Troca TODAS as cores do app em tempo real (sidebar, botoes, checkbox,
+# switch, e o conteudo de cada aba) -- ver o comentario grande antes do
+# heredoc do XAML pra entender por que precisa desse jeito (StaticResource
+# nao atualiza sozinho, e o brush original do XAML fica travado/"frozen"
+# depois de carregado, entao so da pra trocar o brush INTEIRO no
+# dicionario, nunca so a cor dele). O conteudo de cada aba (cards, texto)
+# e construido lendo $window.FindResource(...) na hora -- por isso
+# reconstruir cada aba do zero (Reconstruir-Conteudo, definida mais
+# abaixo) e o jeito confiavel de fazer ela pegar as cores novas tambem,
+# em vez de tentar re-colorir centenas de elementos ja existentes um por
+# um.
+function Set-Tema([string]$modo) {
+  $valores = if ($modo -eq "escuro") { $Global:TemaEscuro } else { $Global:TemaClaro }
+  foreach ($chave in $valores.Keys) {
+    # .set_Item() explicito, NUNCA o indexador $window.Resources[$chave] = ...
+    # -- confirmado com teste isolado que o indexador do PowerShell tem um
+    # bug real de dynamic-binding contra ResourceDictionary aqui: mesmo
+    # passando um SolidColorBrush valido e destravado (IsFrozen=False,
+    # tipo certo confirmado), o indexador lanca "'#FF14181A' nao e um
+    # valor valido pra propriedade Background" na hora que o WPF invalida
+    # os DynamicResource dependentes. set_Item() com o mesmo objeto
+    # funciona sem erro -- so o caminho do indexador que quebra.
+    $novoBrush = ConvertTo-Brush $valores[$chave]
+    $window.Resources.set_Item($chave, $novoBrush)
+  }
+  $script:modoAtual = $modo
+  Atualizar-IconeTema
+
+  try {
+    $pastaLogs = Split-Path $caminhoPrefTema -Parent
+    if (-not (Test-Path $pastaLogs)) { New-Item -ItemType Directory -Path $pastaLogs -Force | Out-Null }
+    [System.IO.File]::WriteAllText($caminhoPrefTema, $modo, (New-Object System.Text.UTF8Encoding($false)))
+  } catch {}
+
+  if (Get-Command Reconstruir-Conteudo -ErrorAction SilentlyContinue) {
+    Reconstruir-Conteudo
+    Mostrar-Secao $script:chaveSecaoAtual
+  }
+}
+
+$btnAlternarTema.Add_Click({
+  try {
+    $novoModo = if ($script:modoAtual -eq "escuro") { "claro" } else { "escuro" }
+    Set-Tema $novoModo
+  } catch {
+    $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
+    "ERRO no BtnAlternarTema: $_`n$($_.ScriptStackTrace)`n$($_.Exception.ToString())" | Out-File $debugLog -Append
+  }
+}.GetNewClosure())
+
+Atualizar-IconeTema
 
 # "Bombeia" a fila do Dispatcher do WPF -- Start-Sleep sozinho trava a
 # thread da UI e nunca deixa o evento de clique (agendado pelo
@@ -498,60 +644,77 @@ function Rolar-ScrollViewersParaFim($pai) {
   }
 }
 
-. (Join-Path $dir "modules\Tab-Ajustes.ps1")
-$conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+# Constroi (ou RE-constroi) o conteudo das 10 abas do zero, lendo as
+# cores atuais do dicionario de recursos ($window.FindResource dentro de
+# cada Build-XTab). Chamada uma vez no arranque, e de novo dentro de
+# Set-Tema toda vez que o tema troca -- e o jeito confiavel de fazer
+# TODO o conteudo de aba (cards, texto, tudo construido em codigo, sem
+# DynamicResource) pegar a cor nova, sem precisar re-colorir centenas de
+# elementos ja existentes um por um. Efeito colateral aceito: dado
+# transitorio de uma aba (ex: resultado do "Verificar meu PC agora" no
+# Diagnostico) reseta ao trocar de tema -- preferencias salvas em disco
+# (perfil de GPU, apps instalados etc) continuam lendo normal, so o que
+# só existia na tela em memoria some.
+function Reconstruir-Conteudo {
+  . (Join-Path $dir "modules\Tab-Ajustes.ps1")
+  $conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Diagnostico.ps1")
-$conteudoDiagnostico = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Diagnostico.ps1")
+  $conteudoDiagnostico = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Inicializacao.ps1")
-$conteudoInicializacao = Build-InicializacaoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Inicializacao.ps1")
+  $conteudoInicializacao = Build-InicializacaoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-GPU.ps1")
-$conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-GPU.ps1")
+  $conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Perfis.ps1")
-$conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Perfis.ps1")
+  $conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Internet.ps1")
-$conteudoInternet = Build-InternetTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Internet.ps1")
+  $conteudoInternet = Build-InternetTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Instalar.ps1")
-$conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Instalar.ps1")
+  $conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Config.ps1")
-$conteudoConfig = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Config.ps1")
+  $conteudoConfig = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
-. (Join-Path $dir "modules\Tab-Updates.ps1")
-$conteudoUpdates = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
+  . (Join-Path $dir "modules\Tab-Updates.ps1")
+  $conteudoUpdates = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
 
-. (Join-Path $dir "modules\Tab-Win11.ps1")
-$conteudoWin11 = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+  . (Join-Path $dir "modules\Tab-Win11.ps1")
+  $conteudoWin11 = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
+
+  $script:secoes = [ordered]@{
+    "TabInstalar"    = @{ Titulo = "Instalar"; Elemento = $conteudoInstalar; NomeNav = "NavInstalar" }
+    "TabAjustes"     = @{ Titulo = "Ajustes"; Elemento = $conteudoAjustes; NomeNav = "NavAjustes" }
+    "TabConfig"      = @{ Titulo = "Config"; Elemento = $conteudoConfig; NomeNav = "NavConfig" }
+    "TabUpdates"     = @{ Titulo = "Atualizações"; Elemento = $conteudoUpdates; NomeNav = "NavUpdates" }
+    "TabWin11"       = @{ Titulo = "Criador Win11"; Elemento = $conteudoWin11; NomeNav = "NavWin11" }
+    "TabDiagnostico" = @{ Titulo = "Diagnóstico"; Elemento = $conteudoDiagnostico; NomeNav = "NavDiagnostico" }
+    "TabInicializacao" = @{ Titulo = "Inicialização"; Elemento = $conteudoInicializacao; NomeNav = "NavInicializacao" }
+    "TabGPU"         = @{ Titulo = "Placa de Vídeo"; Elemento = $conteudoGPU; NomeNav = "NavGPU" }
+    "TabPerfis"      = @{ Titulo = "Perfis"; Elemento = $conteudoPerfis; NomeNav = "NavPerfis" }
+    "TabInternet"    = @{ Titulo = "Internet"; Elemento = $conteudoInternet; NomeNav = "NavInternet" }
+  }
+}
+
+Reconstruir-Conteudo
 
 # --- Navegacao lateral -- troca o conteudo da area principal sem
-# reconstruir nada (cada Build-XTab ja rodou uma unica vez acima; aqui
-# so mostramos/escondemos qual arvore visual aparece). As chaves
-# mantem o nome "TabX" por compatibilidade com os testes automatizados
-# ja escritos (-TesteAba TabAjustes etc).
+# reconstruir nada (cada Build-XTab ja rodou pelo menos uma vez; aqui so
+# mostramos/escondemos qual arvore visual aparece). As chaves mantem o
+# nome "TabX" por compatibilidade com os testes automatizados ja
+# escritos (-TesteAba TabAjustes etc).
 $areaConteudo = $window.FindName("AreaConteudo")
 $txtTituloSecao = $window.FindName("TxtTituloSecao")
-
-$secoes = [ordered]@{
-  "TabInstalar"    = @{ Titulo = "Instalar"; Elemento = $conteudoInstalar; NomeNav = "NavInstalar" }
-  "TabAjustes"     = @{ Titulo = "Ajustes"; Elemento = $conteudoAjustes; NomeNav = "NavAjustes" }
-  "TabConfig"      = @{ Titulo = "Config"; Elemento = $conteudoConfig; NomeNav = "NavConfig" }
-  "TabUpdates"     = @{ Titulo = "Atualizações"; Elemento = $conteudoUpdates; NomeNav = "NavUpdates" }
-  "TabWin11"       = @{ Titulo = "Criador Win11"; Elemento = $conteudoWin11; NomeNav = "NavWin11" }
-  "TabDiagnostico" = @{ Titulo = "Diagnóstico"; Elemento = $conteudoDiagnostico; NomeNav = "NavDiagnostico" }
-  "TabInicializacao" = @{ Titulo = "Inicialização"; Elemento = $conteudoInicializacao; NomeNav = "NavInicializacao" }
-  "TabGPU"         = @{ Titulo = "Placa de Vídeo"; Elemento = $conteudoGPU; NomeNav = "NavGPU" }
-  "TabPerfis"      = @{ Titulo = "Perfis"; Elemento = $conteudoPerfis; NomeNav = "NavPerfis" }
-  "TabInternet"    = @{ Titulo = "Internet"; Elemento = $conteudoInternet; NomeNav = "NavInternet" }
-}
+$script:chaveSecaoAtual = "TabInstalar"
 
 function Mostrar-Secao([string]$chave) {
   $info = $secoes[$chave]
   if (-not $info) { return }
+  $script:chaveSecaoAtual = $chave
   $areaConteudo.Child = $info.Elemento
   $txtTituloSecao.Text = $info.Titulo
   $navBtn = $window.FindName($info.NomeNav)

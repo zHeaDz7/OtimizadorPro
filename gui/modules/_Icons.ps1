@@ -80,6 +80,21 @@ function New-ArcoIcone([double]$x1, [double]$y1, [double]$x2, [double]$y2, [doub
   return $p
 }
 
+# Lua em crescente de verdade (nao so um circulo aberto) -- combina dois
+# circulos com CombinedGeometry/Exclude (o segundo "recorta" um pedaco
+# do primeiro), preenchido, sem contorno. Unico icone que usa preenchimento
+# solido em vez de traco fino, porque e assim que uma lua crescente se
+# desenha de verdade.
+function New-LuaIcone([double]$cx, [double]$cy, [double]$r, [double]$corteX, [double]$corteY, [double]$corteR, $corBrush) {
+  $circuloExterno = New-Object System.Windows.Media.EllipseGeometry (New-Object System.Windows.Point($cx, $cy)), $r, $r
+  $circuloCorte = New-Object System.Windows.Media.EllipseGeometry (New-Object System.Windows.Point($corteX, $corteY)), $corteR, $corteR
+  $combinado = New-Object System.Windows.Media.CombinedGeometry ([System.Windows.Media.GeometryCombineMode]::Exclude), $circuloExterno, $circuloCorte
+  $p = New-Object System.Windows.Shapes.Path
+  $p.Data = $combinado
+  $p.Fill = $corBrush
+  return $p
+}
+
 function New-Icone($window, [string]$nome, [double]$tamanho = 18, $corBrush = $null) {
   if (-not $corBrush) { $corBrush = $window.FindResource("BrushInk") }
   $esp = 1.6
@@ -152,6 +167,20 @@ function New-Icone($window, [string]$nome, [double]$tamanho = 18, $corBrush = $n
     "busca" {
       $tela.Children.Add((New-CirculoIcone 10 10 6 $corBrush $esp)) | Out-Null
       $tela.Children.Add((New-LinhaIcone 14.5 14.5 20 20 $corBrush $esp)) | Out-Null
+    }
+    "sol" {
+      $tela.Children.Add((New-CirculoIcone 12 12 4 $corBrush $esp $true)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 18.5 12 21 12 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 16.6 7.4 18.36 5.64 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 12 5.5 12 3 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 7.4 7.4 5.64 5.64 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 5.5 12 3 12 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 7.4 16.6 5.64 18.36 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 12 18.5 12 21 $corBrush $esp)) | Out-Null
+      $tela.Children.Add((New-LinhaIcone 16.6 16.6 18.36 18.36 $corBrush $esp)) | Out-Null
+    }
+    "lua" {
+      $tela.Children.Add((New-LuaIcone 11 12 7 15.5 9 6 $corBrush)) | Out-Null
     }
     default {
       $tela.Children.Add((New-CirculoIcone 12 12 8 $corBrush $esp)) | Out-Null
