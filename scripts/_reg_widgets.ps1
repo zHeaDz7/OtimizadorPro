@@ -24,9 +24,14 @@ try {
     Set-ItemProperty -Path $path -Name "TaskbarDa" -Value 0 -Type DWord -Force
     Write-Output "on: botao de Widgets removido da barra de tarefas."
   }
+  # So mata o Explorer -- o Windows religa ele sozinho automaticamente
+  # como shell (e' assim que o "Reiniciar" do Gerenciador de Tarefas
+  # funciona). Chamar Start-Process explorer.exe aqui de novo, depois
+  # que o Windows ja religou, abre uma janela nova e visivel (Inicio) --
+  # bug real relatado pelo usuario: abria sozinho ao aplicar perfil e
+  # voltava a aparecer apos reiniciar o PC (Windows restaura janela que
+  # ficou aberta).
   Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Milliseconds 500
-  Start-Process explorer.exe
 } catch {
   Write-Output "AVISO: nao consegui mudar essa configuracao ($_)"
 }

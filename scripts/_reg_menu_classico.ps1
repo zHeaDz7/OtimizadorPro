@@ -15,18 +15,16 @@ try {
     return
   }
 
+  # So mata o Explorer -- o Windows religa ele sozinho automaticamente
+  # como shell. Ver comentario identico em _reg_widgets.ps1.
   if ($Action -eq "Reverter") {
     Remove-Item -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}" -Recurse -Force -ErrorAction SilentlyContinue
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
-    Start-Process explorer.exe
     Write-Output "on: menu de contexto voltou ao estilo Windows 11 (padrao)."
   } else {
     if (-not (Test-Path $path)) { New-Item -Path $path -Force | Out-Null }
     Set-ItemProperty -Path $path -Name "(Default)" -Value "" -Type String -Force
     Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 500
-    Start-Process explorer.exe
     Write-Output "on: menu de contexto classico do Windows 10 ativado."
   }
 } catch {

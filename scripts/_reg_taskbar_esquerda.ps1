@@ -23,9 +23,9 @@ try {
     Set-ItemProperty -Path $path -Name "TaskbarAl" -Value 0 -Type DWord -Force
     Write-Output "on: icones da barra de tarefas movidos pra esquerda."
   }
+  # So mata o Explorer -- o Windows religa ele sozinho automaticamente
+  # como shell. Ver comentario identico em _reg_widgets.ps1.
   Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Milliseconds 500
-  Start-Process explorer.exe
 } catch {
   Write-Output "AVISO: nao consegui mudar essa configuracao ($_)"
 }

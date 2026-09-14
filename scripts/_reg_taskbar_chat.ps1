@@ -23,9 +23,9 @@ try {
     Set-ItemProperty -Path $path -Name "TaskbarMn" -Value 0 -Type DWord -Force
     Write-Output "on: icone de Chat removido da barra de tarefas."
   }
+  # So mata o Explorer -- o Windows religa ele sozinho automaticamente
+  # como shell. Ver comentario identico em _reg_widgets.ps1.
   Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Milliseconds 500
-  Start-Process explorer.exe
 } catch {
   Write-Output "AVISO: nao consegui mudar essa configuracao ($_)"
 }
