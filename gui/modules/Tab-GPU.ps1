@@ -95,6 +95,60 @@ function Open-AmdPanelGUI {
 # Formatar-NumeroGB. Aqui, como funcao de nivel de modulo, tudo que
 # precisam recebem por parametro em vez de fechar sobre variaveis locais.
 
+# Tabela simples "Configuracao | Valor recomendado" -- usada pro
+# checklist do NVIDIA App (Elemento Grafico > Configuracoes Globais),
+# na MESMA ordem que aparece la de verdade. Cada linha e um Grid de 2
+# colunas com um separador embaixo -- layout deliberadamente simples
+# (sem zebra/hover), pra ficar facil de ler rapido, igual uma ficha
+# tecnica.
+function New-TabelaConfigGpu($window, [array]$linhas) {
+  $painel = New-Object System.Windows.Controls.StackPanel
+  $painel.Margin = "0,10,0,0"
+  for ($i = 0; $i -lt $linhas.Count; $i++) {
+    $linha = $linhas[$i]
+    $grade = New-Object System.Windows.Controls.Grid
+    $grade.Margin = "0,0,0,0"
+    $colNome = New-Object System.Windows.Controls.ColumnDefinition
+    $colNome.Width = "*"
+    $colValor = New-Object System.Windows.Controls.ColumnDefinition
+    $colValor.Width = "Auto"
+    $grade.ColumnDefinitions.Add($colNome) | Out-Null
+    $grade.ColumnDefinitions.Add($colValor) | Out-Null
+
+    $txtNome = New-Object System.Windows.Controls.TextBlock
+    $txtNome.Text = $linha.Nome
+    $txtNome.FontSize = 12.5
+    $txtNome.Foreground = $window.FindResource("BrushInk")
+    $txtNome.VerticalAlignment = "Center"
+    $txtNome.TextWrapping = "Wrap"
+    [System.Windows.Controls.Grid]::SetColumn($txtNome, 0)
+
+    $txtValor = New-Object System.Windows.Controls.TextBlock
+    $txtValor.Text = $linha.Valor
+    $txtValor.FontSize = 12.5
+    $txtValor.FontWeight = "Bold"
+    $txtValor.Foreground = $window.FindResource("BrushAccentInk")
+    $txtValor.VerticalAlignment = "Center"
+    $txtValor.TextWrapping = "Wrap"
+    $txtValor.TextAlignment = "Right"
+    $txtValor.Margin = "16,0,0,0"
+    [System.Windows.Controls.Grid]::SetColumn($txtValor, 1)
+
+    $grade.Children.Add($txtNome) | Out-Null
+    $grade.Children.Add($txtValor) | Out-Null
+
+    $linhaBorda = New-Object System.Windows.Controls.Border
+    $linhaBorda.Padding = "0,9"
+    $linhaBorda.Child = $grade
+    if ($i -lt ($linhas.Count - 1)) {
+      $linhaBorda.BorderBrush = $window.FindResource("BrushBorder")
+      $linhaBorda.BorderThickness = "0,0,0,1"
+    }
+    $painel.Children.Add($linhaBorda) | Out-Null
+  }
+  return $painel
+}
+
 function New-CartaoGpuGUI($window, $gpu) {
   $vendor = Get-GpuVendorGUI $gpu.Name
   $vram = Get-GpuVramGUI $gpu.Name $gpu.AdapterRAM
@@ -368,24 +422,57 @@ function Atualizar-InfoGpuGUI($window, $painelGpuInfo, $painelVendor, $setStatus
         $barraPainelNvidia.Children.Add($btnNvidiaApp) | Out-Null
         $painelVendor.Children.Add($barraPainelNvidia) | Out-Null
 
-        $dica.Text = "Painel de Controle NVIDIA (clássico): 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'. No NVIDIA App (mais novo), a mesma coisa fica em Elemento Gráfico > Configurações Globais -- veja o checklist completo abaixo."
+        $dica.Text = "Painel de Controle NVIDIA (clássico): 'Gerenciar Configurações 3D' > 'Modo de gerenciamento de energia' > 'Preferir desempenho máximo'. Em 'Modo de baixa latência', escolha 'Ultra'. No NVIDIA App (mais novo), a mesma coisa fica em Elemento Gráfico > Configurações Globais -- veja a tabela completa abaixo."
         $painelVendor.Children.Add($dica) | Out-Null
 
         try {
+          # Ainda gera o .txt (usado pelo menu de texto, opcao "E") --
+          # so a tela da GUI que passou a usar a tabela abaixo em vez de
+          # despejar o texto bruto do arquivo.
           & (Join-Path $scriptsDir "_driver_guide.ps1") 2>&1 | Out-Null
-          $caminhoGuiaGpu = Join-Path (Split-Path $scriptsDir -Parent) "Guia-Placa-de-Video.txt"
-          if (Test-Path $caminhoGuiaGpu) {
-            $txtChecklistNvidia = New-Object System.Windows.Controls.TextBlock
-            $txtChecklistNvidia.Text = Get-Content -LiteralPath $caminhoGuiaGpu -Raw -Encoding UTF8
-            $txtChecklistNvidia.FontFamily = "Consolas"
-            $txtChecklistNvidia.FontSize = 11.5
-            $txtChecklistNvidia.TextWrapping = "Wrap"
-            $txtChecklistNvidia.Foreground = $window.FindResource("BrushMuted")
-            $txtChecklistNvidia.Margin = "0,12,0,0"
-            $painelVendor.Children.Add($txtChecklistNvidia) | Out-Null
-          }
+
+          $tituloTabela = New-Object System.Windows.Controls.TextBlock
+          $tituloTabela.Text = "NVIDIA APP -- ELEMENTO GRÁFICO > CONFIGURAÇÕES GLOBAIS"
+          $tituloTabela.Style = $window.FindResource("Rotulo")
+          $tituloTabela.Margin = "0,16,0,0"
+          $painelVendor.Children.Add($tituloTabela) | Out-Null
+
+          # Mesma ordem de cima pra baixo que aparece na tela real do
+          # NVIDIA App (Elemento Grafico > Configuracoes Globais).
+          $configsGlobaisNvidia = @(
+            @{ Nome = "Modo de gerenciamento de energia"; Valor = "Preferência por desempenho máximo" }
+            @{ Nome = "Modo de latência baixa"; Valor = "Ultra" }
+            @{ Nome = "Filtragem de textura - Qualidade"; Valor = "Alto desempenho" }
+            @{ Nome = "Filtragem de textura - Otimização trilinear"; Valor = "Ligado" }
+            @{ Nome = "Tamanho do cache do criador de sombras"; Valor = "Sem limite" }
+            @{ Nome = "Atribuição de GPU (notebook com 2 placas)"; Valor = "Sua placa NVIDIA dedicada" }
+          )
+          $tabelaGlobais = New-TabelaConfigGpu $window $configsGlobaisNvidia
+          $painelVendor.Children.Add($tabelaGlobais) | Out-Null
+
+          $txtTrocaNvidia = New-Object System.Windows.Controls.TextBlock
+          $txtTrocaNvidia.Text = "Esses 4 abaixo têm TROCA envolvida -- depende do seu monitor/jogo, não existe valor único certo pra todo mundo:`n`n• Sincronização vertical (VSync): desligado dá mais FPS, mas pode dar tearing. Com G-Sync/FreeSync, deixe desligado (o monitor já resolve). Sem isso, só ligue se o tearing incomodar.`n• Taxa Máxima de Quadros: sem limite maximiza FPS, mas esquenta mais o PC à toa. Limitar uns 3 quadros abaixo da taxa do monitor (ex: 141 num monitor 144Hz) costuma dar menos latência quase sem perder fluidez.`n• RTX Dynamic Vibrance: só visual (cores mais vivas), não mexe em desempenho -- ligue se gostar. Veja também 'Digital Vibrance' abaixo, no painel clássico.`n• Substituição global do DLSS: só importa em jogo com DLSS. 'Qualidade' dá mais nitidez, 'Desempenho' dá mais FPS -- teste os dois."
+          $txtTrocaNvidia.Foreground = $window.FindResource("BrushMuted")
+          $txtTrocaNvidia.FontSize = 12
+          $txtTrocaNvidia.TextWrapping = "Wrap"
+          $txtTrocaNvidia.Margin = "0,14,0,0"
+          $painelVendor.Children.Add($txtTrocaNvidia) | Out-Null
+
+          $tituloVibrance = New-Object System.Windows.Controls.TextBlock
+          $tituloVibrance.Text = "DEIXAR O WINDOWS MAIS COLORIDO -- DIGITAL VIBRANCE"
+          $tituloVibrance.Style = $window.FindResource("Rotulo")
+          $tituloVibrance.Margin = "0,18,0,0"
+          $painelVendor.Children.Add($tituloVibrance) | Out-Null
+
+          $txtVibrance = New-Object System.Windows.Controls.TextBlock
+          $txtVibrance.Text = "Painel de Controle NVIDIA (clássico -- clique direito na área de trabalho) > 'Ajustar as configurações de cor da área de trabalho' > marque 'Usar as minhas configurações' > mova o controle deslizante 'Digital Vibrance' pra direita.`n`nDeixa as cores da tela inteira mais saturadas/vivas (não só em jogo -- vale pra área de trabalho e qualquer programa). 60-80% já dá uma diferença bem visível sem ficar artificial; 100% (máximo) fica bem intenso -- teste e veja o que agrada mais o olho. Não afeta desempenho, é só visual. Reverter é a qualquer momento: volte o controle pro meio ou desmarque 'Usar as minhas configurações'."
+          $txtVibrance.Foreground = $window.FindResource("BrushMuted")
+          $txtVibrance.FontSize = 12
+          $txtVibrance.TextWrapping = "Wrap"
+          $txtVibrance.Margin = "0,8,0,0"
+          $painelVendor.Children.Add($txtVibrance) | Out-Null
         } catch {
-          "ERRO ao gerar checklist NVIDIA App em Atualizar-InfoGpuGUI: $_" | Out-File $debugLog -Append
+          "ERRO ao montar tabela NVIDIA App em Atualizar-InfoGpuGUI: $_" | Out-File $debugLog -Append
         }
 
         Add-SecaoVerificarDriverGUI $window $painelVendor $scriptsDir $emSegundoPlano $setStatus $debugLog $principal "NVIDIA" "_nvidia_driver_lookup.ps1" "BtnGpuVerificarDriverNvidia" "https://www.nvidia.com/Download/index.aspx" "Na página da NVIDIA, selecione: Tipo = GeForce, Série = GeForce RTX 30 Series, Produto = $($principal.Name -replace '^NVIDIA\s+',''), Sistema = Windows 11 -- e marque 'mostrar todos os drivers' pra ver o histórico de versões."
