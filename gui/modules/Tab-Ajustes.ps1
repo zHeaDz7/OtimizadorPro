@@ -19,7 +19,7 @@ $Global:ListaAjustes = @(
   @{ Nome = "Exclusões na indexação do Windows Search"; Script = "_indexing_exclusion.ps1"; Cat = "Sistema"; Conv = "direto"
      Melhora = "Menos uso de disco/CPU em segundo plano indexando pastas de jogos."
      Contras = "Buscar arquivo dentro dessas pastas pelo Windows Search fica mais lento." }
-  @{ Nome = "Plano de energia: Desempenho Máximo"; Script = "_power_plan.ps1"; Cat = "Sistema"; Conv = "direto"
+  @{ Nome = "Plano de energia: Desempenho Máximo"; Script = "_power_plan.ps1"; Cat = "Sistema"; Conv = "toggle"
      Melhora = "CPU nunca reduz frequência pra economizar energia -- desempenho consistente."
      Contras = "Mais consumo de energia e calor. Notebook na bateria dura menos." }
   @{ Nome = "Game Mode, Game Bar, efeitos visuais"; Script = "_windows_tweaks.ps1"; Cat = "Sistema"; Conv = "direto"

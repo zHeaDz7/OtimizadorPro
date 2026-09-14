@@ -79,12 +79,12 @@ $Global:PerfisTextoSimples = @{
 # VARIAVEL do escopo onde foi chamado, nunca funcao aninhada do escopo
 # pai (mesmo bug ja documentado em Tab-Diagnostico.ps1/Tab-GPU.ps1). Por
 # isso tudo que precisa vem por parametro, nada fecha sobre escopo local.
-function Invoke-Perfil($nomePerfil, $itens, $botao, $txtResultado, $scriptsDir, $emSegundoPlano, $callbackPerfil, $setStatus, $debugLog) {
+function Invoke-Perfil($nomePerfil, $itens, $itensReverter, $botao, $txtResultado, $scriptsDir, $emSegundoPlano, $callbackPerfil, $setStatus, $debugLog) {
   try {
     $setStatus.Invoke("Aplicando perfil $nomePerfil em segundo plano -- a janela continua funcionando normal...") | Out-Null
 
     $trabalho = {
-      param($itens, $dirScripts, $txtResultadoRef)
+      param($itens, $itensReverter, $dirScripts, $txtResultadoRef)
 
       function Test-Ligado($item, $saida) {
         $primeira = "$($saida | Select-Object -First 1)"
@@ -93,6 +93,23 @@ function Invoke-Perfil($nomePerfil, $itens, $botao, $txtResultado, $scriptsDir, 
           "onoff"  { return (($saida -join " ") -match "Ligado") }
         }
         return $false
+      }
+
+      # Desfaz primeiro o que for EXCLUSIVO de outro perfil (nao faz
+      # parte da lista do perfil que esta sendo aplicado agora) -- so
+      # um perfil fica de verdade ativo por vez, sem mistura de
+      # configuracao de dois perfis diferentes ao mesmo tempo. So
+      # reverte item "toggle"/"onoff" (os unicos com Reverter/Off
+      # formal e seguro) -- item "direto"/"onoffdireto" de outro
+      # perfil fica como estava, nao tem revert formal pra ele.
+      foreach ($itemRev in $itensReverter) {
+        $caminhoRev = Join-Path $dirScripts $itemRev.Script
+        try {
+          switch ($itemRev.Conv) {
+            "toggle" { & $caminhoRev -Action Reverter 2>&1 | Out-Null }
+            "onoff"  { & $caminhoRev -Action Off 2>&1 | Out-Null }
+          }
+        } catch {}
       }
 
       $aplicados = 0
@@ -133,7 +150,7 @@ function Invoke-Perfil($nomePerfil, $itens, $botao, $txtResultado, $scriptsDir, 
       return @{ Aplicados = $aplicados; NaoAplicados = $naoAplicados; TxtResultado = $txtResultadoRef }
     }
 
-    $emSegundoPlano.Invoke(@($botao), $trabalho, @($itens, $scriptsDir, $txtResultado), $callbackPerfil, $setStatus)
+    $emSegundoPlano.Invoke(@($botao), $trabalho, @($itens, $itensReverter, $scriptsDir, $txtResultado), $callbackPerfil, $setStatus)
   } catch {
     "ERRO no Invoke-Perfil ($nomePerfil): $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
     $setStatus.Invoke("Erro ao aplicar o perfil -- veja o log.") | Out-Null
@@ -185,6 +202,25 @@ function Get-ItensPerfilPorScripts([string[]]$nomesScripts) {
   return $ordenado
 }
 
+# So um perfil fica "de verdade" ativo por vez -- devolve os itens que
+# pertencem a QUALQUER OUTRO perfil mas NAO fazem parte do perfil atual,
+# pra Invoke-Perfil desfazer eles antes de aplicar o perfil novo (evita
+# ficar com configuracao de dois perfis diferentes misturada, tipo
+# Gamers E Produtividade "ativos" ao mesmo tempo). So considera item
+# "toggle"/"onoff" (os unicos com Reverter/Off formal e seguro).
+function Get-ItensReverterOutrosPerfis([string]$perfilAtual) {
+  $propriosScripts = $Global:PerfisScripts[$perfilAtual]
+  $outrosScripts = @()
+  foreach ($chave in $Global:PerfisScripts.Keys) {
+    if ($chave -eq $perfilAtual) { continue }
+    $outrosScripts += $Global:PerfisScripts[$chave]
+  }
+  $outrosScripts = @($outrosScripts | Select-Object -Unique)
+  $paraReverter = @($outrosScripts | Where-Object { $propriosScripts -notcontains $_ })
+  $itens = Get-ItensPerfilPorScripts $paraReverter
+  return @($itens | Where-Object { $_.Conv -eq "toggle" -or $_.Conv -eq "onoff" })
+}
+
 # Nivel de modulo -- usada so pelo callback (roda na thread principal). O
 # $trabalho que roda dentro de Invoke-EmSegundoPlano executa num Runspace
 # separado que nao enxerga funcao nem variavel daqui, so o que e passado
@@ -214,7 +250,7 @@ function Build-PerfisTab {
   $raiz.Children.Add($titulo) | Out-Null
 
   $sub = New-Object System.Windows.Controls.TextBlock
-  $sub.Text = "Cada perfil aplica de uma vez um conjunto de otimizações que já existem nas abas Ajustes e Placa de Vídeo -- não precisa escolher item por item. Reversível: reverta cada item manualmente na aba Ajustes se quiser desfazer algo específico."
+  $sub.Text = "Cada perfil aplica de uma vez um conjunto de otimizações que já existem nas abas Ajustes e Placa de Vídeo -- não precisa escolher item por item. Só um perfil fica ativo por vez: aplicar um perfil desfaz automaticamente o que for exclusivo de outro perfil aplicado antes. Reversível: reverta cada item manualmente na aba Ajustes se quiser desfazer algo específico."
   $sub.Foreground = $window.FindResource("BrushMuted")
   $sub.TextWrapping = "Wrap"
   $sub.Margin = "0,0,0,20"
@@ -305,6 +341,13 @@ function Build-PerfisTab {
   $itensEquilibrio = Get-ItensPerfilPorScripts $Global:PerfisScripts["Equilibrio"]
   $itensAvancado = Get-ItensPerfilPorScripts $Global:PerfisScripts["Avancado"]
 
+  # So um perfil fica ativo por vez -- ver comentario de
+  # Get-ItensReverterOutrosPerfis.
+  $itensReverterGamers = Get-ItensReverterOutrosPerfis "Gamers"
+  $itensReverterProdutividade = Get-ItensReverterOutrosPerfis "Produtividade"
+  $itensReverterEquilibrio = Get-ItensReverterOutrosPerfis "Equilibrio"
+  $itensReverterAvancado = Get-ItensReverterOutrosPerfis "Avancado"
+
   function Get-BulletsSimples($itens) {
     return @($itens | ForEach-Object {
       if ($Global:PerfisTextoSimples.ContainsKey($_.Script)) { $Global:PerfisTextoSimples[$_.Script] } else { $_.Melhora }
@@ -369,10 +412,10 @@ function Build-PerfisTab {
     $setStatus.Invoke("Perfil aplicado: $aplicados item(ns) confirmado(s), $qtdFalhas não aplicado(s).") | Out-Null
   }.GetNewClosure()
 
-  $cGamers.Botao.Add_Click({ Invoke-Perfil "Gamers" $itensGamers $cGamers.Botao $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
-  $cProdutividade.Botao.Add_Click({ Invoke-Perfil "Produtividade" $itensProdutividade $cProdutividade.Botao $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
-  $cEquilibrio.Botao.Add_Click({ Invoke-Perfil "Equilíbrio" $itensEquilibrio $cEquilibrio.Botao $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
-  $cAvancado.Botao.Add_Click({ Invoke-Perfil "Avançado" $itensAvancado $cAvancado.Botao $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
+  $cGamers.Botao.Add_Click({ Invoke-Perfil "Gamers" $itensGamers $itensReverterGamers $cGamers.Botao $cGamers.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
+  $cProdutividade.Botao.Add_Click({ Invoke-Perfil "Produtividade" $itensProdutividade $itensReverterProdutividade $cProdutividade.Botao $cProdutividade.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
+  $cEquilibrio.Botao.Add_Click({ Invoke-Perfil "Equilíbrio" $itensEquilibrio $itensReverterEquilibrio $cEquilibrio.Botao $cEquilibrio.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
+  $cAvancado.Botao.Add_Click({ Invoke-Perfil "Avançado" $itensAvancado $itensReverterAvancado $cAvancado.Botao $cAvancado.TxtResultado $scriptsDir $emSegundoPlano $callbackPerfil $setStatus $debugLog }.GetNewClosure())
 
   # Callback compartilhado do "Verificar se já está aplicado" -- so LE o
   # status atual, nunca aplica nada. Mostra "X de Y itens verificáveis

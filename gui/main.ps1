@@ -93,14 +93,14 @@ $Global:TemaEscuro = [ordered]@{
 # (comportamento de sempre) -- nunca trava a abertura do app por causa
 # disso.
 $caminhoPrefTema = Join-Path (Split-Path $dir -Parent) "Logs\tema.txt"
-$script:modoAtual = "claro"
+$Global:modoAtual = "claro"
 try {
   if (Test-Path $caminhoPrefTema) {
     $lido = (Get-Content -LiteralPath $caminhoPrefTema -Raw -Encoding UTF8).Trim()
-    if ($lido -eq "escuro") { $script:modoAtual = "escuro" }
+    if ($lido -eq "escuro") { $Global:modoAtual = "escuro" }
   }
 } catch {}
-$temaInicial = if ($script:modoAtual -eq "escuro") { $Global:TemaEscuro } else { $Global:TemaClaro }
+$temaInicial = if ($Global:modoAtual -eq "escuro") { $Global:TemaEscuro } else { $Global:TemaClaro }
 
 # ============================================================
 # XAML -- janela principal + tema claro/escuro (ver hashtables acima).
@@ -473,7 +473,7 @@ function Atualizar-IconeTema {
   $corInk = $window.FindResource("BrushInk")
   Set-IconeNavCor $script:iconeSol $corInk
   Set-IconeNavCor $script:iconeLua $corInk
-  if ($script:modoAtual -eq "escuro") {
+  if ($Global:modoAtual -eq "escuro") {
     $script:iconeSol.Visibility = "Visible"
     $script:iconeLua.Visibility = "Collapsed"
   } else {
@@ -515,7 +515,7 @@ function Set-Tema([string]$modo) {
     $novoBrush = ConvertTo-Brush $valores[$chave]
     $window.Resources.set_Item($chave, $novoBrush)
   }
-  $script:modoAtual = $modo
+  $Global:modoAtual = $modo
   Atualizar-IconeTema
 
   try {
@@ -529,7 +529,7 @@ function Set-Tema([string]$modo) {
     $window.Dispatcher.BeginInvoke([action]{
       try {
         Reconstruir-Conteudo
-        Mostrar-Secao $script:chaveSecaoAtual
+        Mostrar-Secao $Global:chaveSecaoAtual
       } catch {
         "ERRO ao reconstruir conteudo apos troca de tema: $_`n$($_.ScriptStackTrace)" | Out-File $debugLog -Append
       }
@@ -537,9 +537,27 @@ function Set-Tema([string]$modo) {
   }
 }
 
+# $modoAtual e $chaveSecaoAtual sao $Global: (nao $script:) DE PROPOSITO.
+# Bug real confirmado nesse projeto: um scriptblock que passa por
+# .GetNewClosure() (como o Add_Click do botao de tema, criado UMA vez e
+# reusado em TODO clique, e o rebuild adiado dentro de Set-Tema, criado
+# de novo a cada troca) ganha seu proprio pseudo-modulo isolado -- uma
+# leitura de "$script:algo" la dentro NAO enxerga a variavel de script
+# de verdade do main.ps1: ou fica presa pra sempre no valor que tinha na
+# hora que o closure foi criado (foi assim que o botao de tema, quando
+# clicado duas vezes seguidas, sempre recalculava o MESMO proximo modo
+# -- nunca alternava de verdade, exatamente o bug relatado de "nao volta
+# pro escuro"), ou fica simplesmente vazia (foi assim que Mostrar-Secao
+# recebia uma chave vazia ao trocar de tema, nao achava nenhuma secao e
+# saia sem fazer nada -- os cartoes/textos construidos em codigo ficavam
+# presos na cor do tema anterior). "$Global:" e o unico escopo que
+# continua sendo o MESMO de verdade visto de dentro de qualquer closure
+# -- confirmado com teste isolado depois de achar o bug. NUNCA volte a
+# usar "$script:" pra esse tipo de estado lido/escrito de dentro de um
+# scriptblock com .GetNewClosure().
 $btnAlternarTema.Add_Click({
   try {
-    $novoModo = if ($script:modoAtual -eq "escuro") { "claro" } else { "escuro" }
+    $novoModo = if ($Global:modoAtual -eq "escuro") { "claro" } else { "escuro" }
     Set-Tema $novoModo
   } catch {
     $debugLog = Join-Path $env:TEMP "otimizadorpro_gui_debug.txt"
@@ -696,6 +714,33 @@ function Rolar-ScrollViewersParaFim($pai) {
   }
 }
 
+# Dot-source dos 10 modulos de aba -- UMA UNICA VEZ, aqui no nivel raiz
+# do script (nunca dentro de uma funcao). Isso e CRITICO: toda funcao de
+# "nivel de modulo" que cada Tab-*.ps1 define (ex: Invoke-Perfil,
+# Open-NvidiaAppGUI) so fica visivel PRA SEMPRE se for definida aqui.
+# Bug real confirmado (com teste isolado E com o app de verdade -- clicar
+# "Aplicar este perfil" lancava "Invoke-Perfil nao e reconhecido"): se
+# esse dot-source rodasse DENTRO de Reconstruir-Conteudo (uma funcao),
+# toda funcao de nivel de modulo ficava presa no escopo TRANSITORIO
+# daquela chamada de funcao -- e um closure de botao (Add_Click) criado
+# durante essa chamada NAO consegue mais resolver o nome dessa funcao
+# depois que Reconstruir-Conteudo ja retornou (GetNewClosure() so
+# "engarrafa" VARIAVEL do escopo, nunca funcao aninhada do escopo pai --
+# mesma regra ja documentada varias vezes nesse projeto, so que dessa vez
+# o "escopo pai" era a propria chamada de Reconstruir-Conteudo). Por
+# isso Reconstruir-Conteudo (mais abaixo) so CHAMA as funcoes Build-XTab
+# -- nao dot-sourca nada.
+. (Join-Path $dir "modules\Tab-Ajustes.ps1")
+. (Join-Path $dir "modules\Tab-Diagnostico.ps1")
+. (Join-Path $dir "modules\Tab-Inicializacao.ps1")
+. (Join-Path $dir "modules\Tab-GPU.ps1")
+. (Join-Path $dir "modules\Tab-Perfis.ps1")
+. (Join-Path $dir "modules\Tab-Internet.ps1")
+. (Join-Path $dir "modules\Tab-Instalar.ps1")
+. (Join-Path $dir "modules\Tab-Config.ps1")
+. (Join-Path $dir "modules\Tab-Updates.ps1")
+. (Join-Path $dir "modules\Tab-Win11.ps1")
+
 # Constroi (ou RE-constroi) o conteudo das 10 abas do zero, lendo as
 # cores atuais do dicionario de recursos ($window.FindResource dentro de
 # cada Build-XTab). Chamada uma vez no arranque, e de novo dentro de
@@ -710,34 +755,15 @@ function Rolar-ScrollViewersParaFim($pai) {
 function Reconstruir-Conteudo {
   param([bool]$primeiraCarga = $false)
 
-  . (Join-Path $dir "modules\Tab-Ajustes.ps1")
   $conteudoAjustes = Build-AjustesTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Diagnostico.ps1")
   $conteudoDiagnostico = Build-DiagnosticoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Inicializacao.ps1")
   $conteudoInicializacao = Build-InicializacaoTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-GPU.ps1")
   $conteudoGPU = Build-GPUTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Perfis.ps1")
   $conteudoPerfis = Build-PerfisTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano} -verificarAoAbrir $primeiraCarga
-
-  . (Join-Path $dir "modules\Tab-Internet.ps1")
   $conteudoInternet = Build-InternetTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Instalar.ps1")
   $conteudoInstalar = Build-InstalarTab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Config.ps1")
   $conteudoConfig = Build-ConfigTab -window $window -scriptsDir $scriptsDir -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
-
-  . (Join-Path $dir "modules\Tab-Updates.ps1")
   $conteudoUpdates = Build-UpdatesTab -window $window -setStatus ${function:Set-Status}
-
-  . (Join-Path $dir "modules\Tab-Win11.ps1")
   $conteudoWin11 = Build-Win11Tab -window $window -setStatus ${function:Set-Status} -emSegundoPlano ${function:Invoke-EmSegundoPlano}
 
   $script:secoes = [ordered]@{
@@ -763,12 +789,12 @@ Reconstruir-Conteudo -primeiraCarga $true
 # escritos (-TesteAba TabAjustes etc).
 $areaConteudo = $window.FindName("AreaConteudo")
 $txtTituloSecao = $window.FindName("TxtTituloSecao")
-$script:chaveSecaoAtual = "TabInstalar"
+$Global:chaveSecaoAtual = "TabInstalar"
 
 function Mostrar-Secao([string]$chave) {
   $info = $secoes[$chave]
   if (-not $info) { return }
-  $script:chaveSecaoAtual = $chave
+  $Global:chaveSecaoAtual = $chave
   $areaConteudo.Child = $info.Elemento
   $txtTituloSecao.Text = $info.Titulo
   $navBtn = $window.FindName($info.NomeNav)

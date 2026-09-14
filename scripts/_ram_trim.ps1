@@ -9,12 +9,24 @@
 # configuracao permanente -- por isso nao tem "Reverter".
 $ErrorActionPreference = "Stop"
 
+# Processos especiais do proprio Windows (nao sao programa de verdade --
+# sao valores internos que o Process do .NET expõe pra representar coisa
+# como memoria comprimida ou o kernel) -- mexer no working set desses
+# pode derrubar o processo INTEIRO sem gerar excecao capturavel (falha de
+# acesso de baixo nivel, o try/catch normal do PowerShell nao pega isso).
+# PID 0 e 4 sao fixos em qualquer Windows/idioma (Idle e System); os
+# nomes abaixo sao os valores internos do .NET, tambem fixos.
+$nomesProtegidos = @("Idle", "System", "Secure System", "Registry", "Memory Compression")
+$pidsProtegidos = @(0, 4)
+
 $antes = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory
 $n = 0
 $falhas = 0
 foreach ($p in (Get-Process -ErrorAction SilentlyContinue)) {
   try {
     if ($p.Id -eq $PID) { continue }
+    if ($pidsProtegidos -contains $p.Id) { continue }
+    if ($nomesProtegidos -contains $p.ProcessName) { continue }
     $p.MinWorkingSet = $p.MinWorkingSet
     $n++
   } catch {
